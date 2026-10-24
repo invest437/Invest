@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Unbounded:wght@500;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+<title>Инвест-помощник</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#0b0d12;--card:#12161d;--line:#1f2632;--tx:#f4f7fb;--hint:#929db0;--ac:#e3c570;--bl:#5b8cff;--wa:#f29a4a;--rd:#ff6b6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;padding:14px 14px calc(92px + env(safe-area-inset-bottom));background:var(--bg);color:var(--tx);font:500 15px/1.5 'Manrope',-apple-system,Segoe UI,Roboto,sans-serif;font-variant-numeric:tabular-nums}
+#app{animation:f .25s ease}@keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h2{font:700 12px 'Unbounded','Manrope',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ac);margin:20px 4px 10px}
+.card{background:rgba(18,22,30,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.hero{background:linear-gradient(135deg,#2b2511,#10203a 85%);border-color:#4d4222}
+.big{font:700 29px/1.15 'Unbounded','Manrope',sans-serif;letter-spacing:-.02em;margin:4px 0}.hint{color:var(--hint);font-size:13px;font-weight:600}b{font-weight:800}
+.up{color:var(--ac)}.dn{color:var(--rd)}.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0}
+.row+.row,.sep{border-top:1px solid var(--line)}
+.chip{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;background:#ffffff10}
+.bar{height:7px;background:#ffffff12;border-radius:4px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,#4c7be0,#e8b45a);border-radius:4px}
+.tip{border-left:3px solid var(--c,var(--bl))}.tip b{display:block;margin-bottom:4px}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;overflow-x:auto;scrollbar-width:none;background:#0b0d12ee;backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:0 0 auto;min-width:68px;background:none;border:0;color:#6b7587;font-size:9.5px;font-weight:700;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button span{font-size:18px;filter:grayscale(1) opacity(.7)}nav button.on{color:var(--ac)}nav button.on span{filter:none}
+input,select,textarea{width:100%;padding:12px;margin:4px 0 8px;border:1px solid var(--line);border-radius:12px;background:#0d1117;color:var(--tx);font-size:16px}
+.go{border:0;border-radius:14px;padding:14px;width:100%;font:800 15px 'Manrope',sans-serif;color:#1b1205;background:linear-gradient(135deg,#f3d27a 0%,#f7b34e 22%,#ef8c3a 60%,#3f66d9 125%);box-shadow:0 10px 24px -6px rgba(63,102,217,.75),0 2px 0 rgba(255,236,170,.45) inset;transition:transform .12s,box-shadow .12s}.go:active{transform:translateY(2px) scale(.97);box-shadow:0 3px 10px -6px rgba(63,102,217,.7),inset 0 3px 9px rgba(0,0,0,.4)}
+label{display:block;margin-top:6px}ul{margin:6px 0 0;padding-left:18px}li{margin:4px 0}
+.m{padding:10px 13px;border-radius:14px;margin:8px 0;white-space:pre-wrap;max-width:92%}.m.u{background:#1c2a44;margin-left:auto}.m.a{background:#171d27;border:1px solid var(--line)}
+.q{display:inline-block;margin:4px 4px 0 0;padding:7px 11px;border-radius:20px;border:1px solid var(--line);background:#0d1117;color:var(--tx);font:700 12px 'Manrope',sans-serif}
+.n{font-family:'Unbounded','Manrope',sans-serif;font-weight:700;font-size:.92em;letter-spacing:-.01em;font-variant-numeric:lining-nums}
+.big .n{font-size:1em;font-weight:inherit}
+.w{font-family:'Playfair Display',Georgia,serif;font-variant-numeric:lining-nums;font-weight:700;font-size:1.1em;color:#e3c570}
+.inc .big{font:800 40px/1.1 'Playfair Display',Georgia,serif;color:#e3c570;letter-spacing:0}.inc .big .w{font:inherit;color:inherit}
+.inc .hero{background:linear-gradient(135deg,#2b2511,#10203a 85%);border-color:#4d4222}.inc .up{color:#e3c570}.inc h2{color:#d8bb6a}
+body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background:
+radial-gradient(120% 55% at 12% -8%,rgba(48,74,160,.40),transparent 62%),
+radial-gradient(95% 50% at 105% 104%,rgba(170,115,40,.24),transparent 62%),
+linear-gradient(180deg,#06070d,#0a0d17 55%,#05060a)}
+#fly{position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}nav{z-index:5}nav::-webkit-scrollbar{display:none}
+#sky{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}.tbl td,.tbl th{padding:7px 3px;text-align:right}.tbl td:first-child,.tbl th:first-child{text-align:left}.tbl th{color:var(--hint);font-weight:700;font-size:11px}.tbl tr+tr td{border-top:1px solid var(--line)}.x{background:none;border:0;color:var(--hint);font-size:17px;padding:2px 6px}
+input[type=date]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0;max-width:100%;height:50px;text-align:left}
+input[type=date]::-webkit-date-and-time-value{text-align:left}
+.q.on{border-color:var(--ac);color:var(--ac)}.news{display:block;cursor:pointer}.news b{line-height:1.35}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}.chips::-webkit-scrollbar{display:none}.chips .q{flex:0 0 auto;margin:0}
+.tag{display:inline-block;padding:2px 10px;border-radius:20px;font:800 11px 'Manrope',sans-serif;letter-spacing:.05em;margin-bottom:6px}
+.t-buy{background:#e3c5702a;color:#e3c570}.t-sell{background:#f29a4a2a;color:#f29a4a}.t-hold{background:#5b8cff2a;color:#8fb0ff}.idea b{display:block}.why{margin-top:5px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.sc td,.sc th{padding:7px 2px}
+</style></head><body>
+<canvas id="sky"></canvas><canvas id="fly"></canvas>
+<div id="app" class="hint">Загрузка…</div>
+<nav><button data-t="p"><span>💼</span>Портфель</button><button data-t="i"><span>💰</span>Доход</button><button data-t="g"><span>🎯</span>Цели</button><button data-t="pl"><span>🧭</span>План</button><button data-t="n"><span>📰</span>Новости</button><button data-t="an"><span>🔬</span>Анализ</button><button data-t="s"><span>✍️</span>Сделки</button></nav>
+<script>
+const tg=(window.Telegram&&window.Telegram.WebApp)||{};try{tg.ready();tg.expand();tg.setHeaderColor('#06070d');tg.setBackgroundColor('#06070d')}catch(_){}
+const $=id=>document.getElementById(id);
+window.onerror=(m,u,l)=>{$('app').innerHTML='<div class="card dn">Ошибка: '+m+' (строка '+l+')</div>'};
+const ls=k=>{try{return localStorage.getItem(k)}catch(_){return null}};
+const R=x=>Math.round(x).toLocaleString('ru-RU')+' ₽',P=x=>(x>=0?'+':'')+x.toFixed(1)+'%',C=x=>x>=0?'up':'dn';
+const Y=m=>m==null?'>60 лет':m==0?'✅ достигнуто':'≈ '+Math.floor(m/12)+' л. '+m%12+' мес.';
+const store={get:k=>Promise.race([new Promise(r=>{try{tg.CloudStorage.getItem(k,(e,v)=>r(e||!v?ls(k):v))}catch(_){r(ls(k))}}),new Promise(r=>setTimeout(()=>r(ls(k)),2500))]),
+set:(k,v)=>{try{localStorage.setItem(k,v)}catch(_){}try{tg.CloudStorage.setItem(k,v)}catch(_){}}};
+const DEF={cash:0,fees:0,trades:[],base:null,positions:[],monthly:9300,growth:10,delay:12,yield:12,fee:0.3,steps:[50000,100000,200000,300000,500000]};
+let K='',M=[],busy=false,S=DEF,Q={},E={ev:[],annual:0},tab='p',status='';
+const kind=t=>/^(SU|RU000)/.test(t)||t.length>=12?'bond':'share';
+const J=async u=>{const r=await fetch('https://iss.moex.com/iss'+u);if(!r.ok)throw 0;return r.json()};
+const rows=b=>b.data.map(r=>Object.fromEntries(b.columns.map((c,i)=>[c,r[i]])));
+async function quote(p){const b=p.kind=='bond';
+ const j=await J((b?'/engines/stock/markets/bonds/securities/':'/engines/stock/markets/shares/boards/TQBR/securities/')+p.secid+'.json?iss.meta=off&iss.only=securities,marketdata');
+ const sec=rows(j.securities),md=rows(j.marketdata);let s=sec[0];
+ if(b)for(const x of['TQCB','TQOB','TQIR']){const f=sec.find(r=>r.BOARDID==x);if(f){s=f;break}}
+ const m=md.find(r=>r.BOARDID==s.BOARDID)||{},pr=m.LAST||m.LCURRENTPRICE||s.PREVPRICE,pv=s.PREVPRICE||pr;
+ if(b){const f=s.FACEVALUE||1000,a=s.ACCRUEDINT||0;return{unit:pr/100*f+a,prev:pv/100*f+a,name:s.SHORTNAME}}
+ return{unit:pr,prev:pv,name:s.SHORTNAME}}
+const dd=s=>new Date(s+'T00:00:00');
+async function events(p,t,ya,yn){const o=[];let a=0;
+ if(p.kind=='share'){const j=await J('/securities/'+p.secid+'/dividends.json?iss.meta=off');
+  for(const r of rows(j.dividends)){if(!r.value)continue;const d=dd(r.registryclosedate);
+   if(d>=t)o.push({d,s:p.secid,k:'дивиденд',a:r.value*p.qty});if(d>ya)a+=r.value*p.qty}}
+ else{const j=await J('/securities/'+p.secid+'/bondization.json?iss.meta=off&iss.only=coupons&limit=100');
+  for(const r of rows(j.coupons)){if(!r.value)continue;const d=dd(r.coupondate);
+   if(d>=t&&d<=yn){a+=r.value*p.qty;o.push({d,s:p.secid,k:'купон',a:r.value*p.qty})}}}
+ return{o,a}}
+async function refresh(){status='Обновляю котировки…';draw();const t=new Date();t.setHours(0,0,0,0);
+ const ya=new Date(t);ya.setFullYear(ya.getFullYear()-1);const yn=new Date(t);yn.setFullYear(yn.getFullYear()+1);
+ const res=await Promise.allSettled(S.positions.map(async p=>[p,await quote(p),await events(p,t,ya,yn)]));
+ Q={};E={ev:[],annual:0};let bad=0;
+ res.forEach(r=>{if(r.status=='fulfilled'){Q[r.value[0].secid]=r.value[1];E.ev.push(...r.value[2].o);E.annual+=r.value[2].a}else bad++});
+ E.ev.sort((a,b)=>a.d-b.d);status=bad?`⚠️ Нет данных по ${bad} бумагам (проверьте тикеры и интернет)`:'';draw()}
+const unit=p=>(Q[p.secid]||{unit:p.avg}).unit;
+const kv=k=>S.positions.filter(p=>p.kind==k).reduce((a,p)=>a+unit(p)*p.qty,0);
+const calc=()=>{const v=S.positions.reduce((a,p)=>a+unit(p)*p.qty,0),c=S.positions.reduce((a,p)=>a+p.avg*p.qty,0);return{v,c,tot:v+S.cash}};
+function months(need,c,m,r,g,d){r/=100;for(let i=1;i<=720;i++){c=c*(1+r/12)+m;if(i>d&&(i-d)%12==0)m*=1+g/100;if(c>=need)return i}return null}
+let N=null,nf='mine',nbusy=false,nerr=0,NL=[],ntot=0;
+const KW={SBER:['сбер'],SBERP:['сбер'],GAZP:['газпром'],LKOH:['лукойл'],ROSN:['роснефть'],YDEX:['яндекс'],OZON:['ozon','озон'],MTSS:['мтс'],X5:['x5','пятёрочка','перекрёсток'],T:['т-технологии','тинькофф'],VTBR:['втб'],MGNT:['магнит'],NVTK:['новатэк'],GMKN:['норникель','норильский никель'],PLZL:['полюс'],CHMF:['северсталь'],NLMK:['нлмк'],MAGN:['ммк'],TATN:['татнефть'],SNGS:['сургутнефтегаз'],MOEX:['мосбиржа','московская биржа'],AFLT:['аэрофлот'],PHOR:['фосагро'],ALRS:['алроса'],RUAL:['русал'],HYDR:['русгидро'],IRAO:['интер рао'],RU000A10EJQ7:['атомэнергопром'],RU000A10CMT9:['яндекс']};
+const kws=p=>{const k=[...(KW[p.secid]||[])],n=(Q[p.secid]||{}).name;if(n){const w=n.toLowerCase().match(/[а-яёa-z]{4,}/);if(w)k.push(w[0])}if(/^SU/.test(p.secid))k.push('офз');if(!k.length&&p.secid.length>2)k.push(p.secid.toLowerCase());return k};
+const rss=async(u,src)=>{const r=await fetch('https://api.rss2json.com/v1/api.json?rss_url='+encodeURIComponent(u));const j=await r.json();if(j.status!='ok')throw 0;
+ return j.items.map(i=>({t:i.title,l:i.link,d:new Date(String(i.pubDate).replace(' ','T')+'Z'),s:src,x:(i.description||'').replace(/<[^>]*>/g,' ')}))};
+const qname=p=>(KW[p.secid]||[])[0]||(Q[p.secid]||{}).name||p.secid;
+async function loadNews(){nbusy=true;draw();
+ const gn=p=>rss('https://news.google.com/rss/search?q='+encodeURIComponent(qname(p)+(p.kind=='bond'?' облигации':' акции')+' when:7d')+'&hl=ru&gl=RU&ceid=RU:ru','Новости').then(a=>a.map(i=>({...i,k:p.secid})));
+ const jobs=[J('/sitenews.json?iss.meta=off').then(j=>rows(j.sitenews||j[Object.keys(j)[0]]).map(r=>({t:r.title,l:'https://www.moex.com/n'+r.id,d:new Date(String(r.published_at).replace(' ','T')+'+03:00'),s:'Мосбиржа'}))),
+  rss('https://rssexport.rbc.ru/rbcnews/news/30/full.rss','РБК'),rss('https://www.interfax.ru/rss.asp','Интерфакс'),...S.positions.map(gn)];
+ const res=await Promise.allSettled(jobs),out=[];res.forEach(r=>{if(r.status=='fulfilled')out.push(...r.value)});
+ const seen=new Set();N=out.filter(i=>!isNaN(i.d)&&!seen.has(i.t)&&seen.add(i.t)).sort((a,b)=>b.d-a.d);
+ nerr=res.filter(r=>r.status!='fulfilled').length;ntot=jobs.length;nbusy=false;draw()}
+function openL(i){const u=NL[i].l;try{tg.openLink(u)}catch(_){window.open(u,'_blank')}}
+function ideas(){const{tot}=calc(),L=[],sv=kv('share'),bv=kv('bond'),T=tot+S.monthly;
+ const card=(tag,cls,title,why,risk)=>`<div class="card idea"><span class="tag ${cls}">${tag}</span><b>${title}</b><div class="why"><span class="hint">Почему:</span> ${why}</div>${risk?`<div class="why"><span class="hint">Риск:</span> ${risk}</div>`:''}</div>`;
+ const fee=v=>R(v*S.fee/100);
+ for(const p of S.positions){const v=unit(p)*p.qty,w=v/tot*100,pn=(unit(p)/p.avg-1)*100;
+  if(w>25){const q=Math.ceil((v-.2*tot)/unit(p));
+   L.push(card('НЕ ДОКУПАТЬ','t-hold',`${p.secid}: пока не добавлять`,`на бумагу приходится ${w.toFixed(0)}% портфеля, а разумный предел 15–20%. Плохая новость по одному эмитенту ударит сразу по всему портфелю. Новые взносы лучше направить в другие бумаги.`,''));
+   L.push(card('ПРОДАТЬ (по желанию)','t-sell',`${p.secid}: около ${q} шт ≈ ${R(q*unit(p))}`,`чтобы снизить долю примерно до 20% и освободить деньги для диверсификации.`,`${pn>0?`продажа в плюсе (${P(pn)}) приведёт к налогу НДФЛ с прибыли и комиссии около ${fee(q*unit(p))}`:`продажа зафиксирует убыток (${P(pn)}), комиссия около ${fee(q*unit(p))}`}. Можно обойтись и без продажи, просто докупая другие бумаги.`))}
+  else if(pn<-15)L.push(card('ПЕРЕСМОТРЕТЬ','t-hold',`${p.secid}: ${P(pn)} к цене покупки`,`решите, сохранился ли довод, ради которого вы покупали. Если нет, продажа ограничит убыток, и его можно будет учесть при расчёте налога с прибыли (уточните у брокера).`,`продажа фиксирует убыток; если довод в силе, а цена просто упала, часто разумнее держать или усреднять небольшой суммой.`))}
+ if(S.cash/tot>.1)L.push(card('КУПИТЬ','t-buy',`Вложить свободные ${R(S.cash)}`,`деньги на счёте не приносят дохода и обесцениваются из-за инфляции. Одна покупка вместо нескольких мелких экономит комиссии (${fee(S.cash)} за всю сумму).`,`рынок может просесть сразу после покупки; если волнуетесь, разделите вложение на 2–3 части по неделям.`));
+ const db=.4*T-bv;if(db>tot*.03)L.push(card('КУПИТЬ','t-buy',`Облигации ≈ ${R(db)}`,`доля облигаций ${(bv/tot*100).toFixed(0)}% при ориентире 35–40%. Купоны дают предсказуемый доход и смягчают просадки акций.`,`цены облигаций падают при росте ключевой ставки; у корпоративных есть риск эмитента, смотрите рейтинг.`));
+ const SEC={SBER:'b',VTBR:'b',T:'b',MOEX:'b',OZON:'r',X5:'r',MGNT:'r',MTSS:'t',YDEX:'i',LKOH:'o',ROSN:'o',TATN:'o',NVTK:'o',GAZP:'o',SNGS:'o',GMKN:'m',CHMF:'m',NLMK:'m',MAGN:'m',PLZL:'m',IRAO:'e',HYDR:'e',PHOR:'c'};
+ const IDEA=[['o','нефтегаза','LKOH или TATN'],['m','металлургии','CHMF или NLMK'],['e','электроэнергетики','IRAO'],['c','химии и удобрений','PHOR']];
+ const have=new Set(S.positions.map(p=>SEC[p.secid]).filter(Boolean)),g=IDEA.find(x=>!have.has(x[0]));
+ if(g&&sv/T<.55+.1)L.push(card('КУПИТЬ (идея)','t-buy',`Присмотритесь к ${g[2]}`,`в портфеле нет ${g[1]}. Эта отрасль традиционно входит в дивидендное ядро российского рынка и слабо зависит от банков и ритейла, которых у вас много. Ориентир по сумме: около трети ближайшего взноса (${R(S.monthly/3)}).`,`дивиденды не гарантированы и зависят от цен на сырьё и решений компании. Перед покупкой проверьте отчётность и дивидендную политику. Это пример для изучения, а не указание.`));
+ return(L.length?'<h2>Что и почему</h2>'+L.slice(0,6).join(''):'<div class="card tip" style="--c:var(--ac)"><b>Структура в порядке</b>Явных перекосов сейчас не видно. Продолжайте регулярные взносы.</div>')+'<h2>Наблюдения</h2>'}
+// END ideas
+const bar=p=>`<div class="bar"><i style="width:${Math.max(2,Math.min(100,p))}%"></i></div>`;
+const tip=(c,t,x)=>`<div class="card tip" style="--c:${c}"><b>${t}</b>${x}</div>`;
+const V={
+p(){const{v,c,tot}=calc();if(!S.positions.length)return'<div class="card">Портфель пуст. Откройте «Сделки» → «Импорт портфеля».</div>';
+ return`<div class="card hero"><div class="hint">Стоимость портфеля</div><div class="big">${R(tot)}</div><div class="${C(v-c)}">${P((v/c-1)*100)} к цене покупки (${R(v-c)})</div>
+ <div class="hint" style="margin-top:6px">Свободно ${R(S.cash)} · комиссии всего ${R(S.fees)}</div></div>
+ <h2>Бумаги</h2><div class="card">${[...S.positions].sort((a,b)=>unit(b)*b.qty-unit(a)*a.qty).map(p=>{const val=unit(p)*p.qty,w=val/tot*100,pn=(unit(p)/p.avg-1)*100;
+ return`<div class="row" style="display:block"><div class="row" style="padding:0"><span><b>${p.secid}</b> <span class="hint">${p.kind=='bond'?'облигация':'акция'} · ${p.qty} шт</span></span><span>${R(val)}</span></div>
+ <div class="row" style="padding:2px 0 0"><span class="hint">${w.toFixed(0)}% портфеля${Q[p.secid]?'':' · ⚠️ нет цены'}</span><span class="chip ${C(pn)}">${P(pn)}</span></div>${bar(w*2)}</div>`}).join('<div class="sep" style="margin:8px 0"></div>')}</div>`},
+i(){const lim=new Date();lim.setDate(lim.getDate()+60);const ev=E.ev.filter(e=>e.d<=lim);
+ return`<div class="inc"><div class="card hero"><div class="hint">Пассивный доход за год (после НДФЛ 13%)</div><div class="big">${R(E.annual*.87)}</div><div class="hint">≈ ${R(E.annual*.87/12)} в месяц · до налога ${R(E.annual)}</div></div>
+ <h2>Выплаты на 60 дней</h2><div class="card">${ev.length?ev.map(e=>`<div class="row"><span>${e.d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'})} · <b>${e.s}</b> <span class="hint">${e.k}</span></span><b class="up">${R(e.a)}</b></div>`).join(''):'<div class="hint">Ближайших объявленных выплат нет</div>'}</div>
+ <div class="hint">Дивиденды оценены по прошлому году — это не гарантия.</div></div>`},
+g(){const{tot}=calc();return`<div class="hint" style="margin:0 4px 10px">Доходность ${S.yield}%/год · взнос ${R(S.monthly)}/мес · рост взносов ${S.growth}%/год после ${S.delay} мес. Меняется в «Сделках».</div>
+ ${S.steps.map(s=>{const n=s*12/(S.yield/100),p=Math.min(100,tot/n*100);return`<div class="card"><div class="row" style="padding:0"><b>${R(s)}/мес</b><span class="chip">${Y(tot>=n?0:months(n,tot,S.monthly,S.yield,S.growth,S.delay))}</span></div>${bar(p)}<div class="hint" style="margin-top:6px">Нужен капитал ${R(n)} · ${p.toFixed(1)}%</div></div>`}).join('')}
+ <div class="hint">Без налогов и инфляции. Ориентир, а не прогноз.</div>`},
+a(){const{tot}=calc();if(!S.positions.length)return'<div class="card">Сначала добавьте портфель во вкладке «Сделки».</div>';
+ const sv=kv('share'),bv=kv('bond'),sp=sv/tot*100,bp=bv/tot*100,cp=S.cash/tot*100,n=S.positions.filter(p=>p.kind=='share').length;
+ const T=tot+S.monthly,ds=Math.max(0,.55*T-sv),db=Math.max(0,.4*T-bv),fs=ds+db?ds/(ds+db):.55,big=S.positions.filter(p=>unit(p)*p.qty/tot>.25);
+ const t=[tip('var(--bl)','Структура портфеля',`Сейчас: акции ${sp.toFixed(0)}%, облигации ${bp.toFixed(0)}%, рубли ${cp.toFixed(0)}%. Ориентир для умеренно-агрессивного профиля: акции 50–60%, облигации 35–40%, свободные деньги до 5%.`),
+ tip('var(--ac)','План на ближайший взнос',`Взнос ${R(S.monthly)}: примерно ${R(S.monthly*fs)} в акции и ${R(S.monthly*(1-fs))} в облигации, чтобы приблизиться к ориентиру. Комиссия около ${R(S.monthly*S.fee/100)}.`)];
+ if(big.length)t.push(tip('var(--wa)','Высокая концентрация',`${big.map(p=>p.secid+' — '+(unit(p)*p.qty/tot*100).toFixed(0)+'%').join(', ')}. Не докупайте эти бумаги: новые взносы направляйте в другие. Продавать необязательно — это комиссия и налог.`));
+ if(cp>10)t.push(tip('var(--wa)','Деньги без дела',`Свободно ${cp.toFixed(0)}% портфеля (${R(S.cash)}). Лучше вложить одной покупкой, чем дробить: так меньше комиссий.`));
+ if(n<8)t.push(tip('var(--wa)','Мало акций',`В портфеле ${n} акций. Ориентир — 8–15 эмитентов из разных отраслей (банки, нефтегаз, IT, ритейл, металлы), чтобы одна проблема не била по всему портфелю.`));
+ t.push(tip('var(--hint)','Комиссии',`При комиссии ${S.fee}% и взносах ${R(S.monthly)}/мес на покупки уйдёт около ${R(S.monthly*12*S.fee/100)} в год. Покупайте раз в месяц одной сделкой, а не часто и понемногу. Проверьте свой тариф у брокера и укажите его в «Сделках».`),
+ tip('var(--ac)','Реинвестируйте выплаты',`Ожидаемый доход за год ≈ ${R(E.annual*.87)} (${(E.annual*.87/tot*100).toFixed(1)}% от капитала). Вкладывайте дивиденды и купоны обратно — это главный двигатель роста.`));
+ return ideas()+t.join('')+`<div class="hint">Это общая аналитика, а не индивидуальная инвестиционная рекомендация. Решения принимаете вы.</div>`},
+ai(){const esc=x=>x.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+ const chat=K?`<div>${M.map(m=>`<div class="m ${m.role=='user'?'u':'a'}">${esc(m.content)}</div>`).join('')}${busy?'<div class="hint">Думаю…</div>':''}</div>
+ <div>${['Разбери мой портфель','Куда вложить ближайший взнос?','Какие главные риски?'].map(t=>`<button class="q" onclick="ask('${t}')">${t}</button>`).join('')}</div>
+ <textarea id="q" rows="2" placeholder="Ваш вопрос…"></textarea><button class="go" onclick="ask()">Отправить</button>
+ <button class="q" style="margin-top:10px" onclick="K='';store.set('k','');draw()">Удалить ключ</button>`
+ :`<div class="hint">Нужен платный API-ключ Anthropic. Ключ хранится только в вашем Telegram. В России и ряде других стран API недоступен — там используйте вариант 1.</div><input id="key" type="password" placeholder="Ключ API (sk-ant-…)"><button class="go" onclick="K=$('key').value.trim();store.set('k',K);draw()">Сохранить ключ</button>`;
+ return`<div class="card hero"><b>🤖 ИИ-консультант</b><div class="hint" style="margin-top:4px">Разбирает ваш портфель, риски и план взносов. Это не индивидуальная инвестиционная рекомендация.</div></div>
+ <div class="card"><b>Вариант 1 — бесплатно, в чате с Claude</b><div class="hint" style="margin:4px 0 10px">Скопируйте отчёт по портфелю, вставьте в чат с Claude и задайте вопрос.</div><button class="go" onclick="copyRep()">Скопировать отчёт</button></div>
+ <div class="card"><b>Вариант 2 — чат в приложении</b><div style="margin-top:8px">${chat}</div></div>`},
+r(){const{v,c,tot}=calc();if(!S.positions.length)return'<div class="card">Сначала добавьте портфель во вкладке «Сделки».</div>';
+ const sv=kv('share'),bv=kv('bond');
+ const rows=[...S.positions].sort((a,b)=>unit(b)*b.qty-unit(a)*a.qty).map(p=>{const pn=(unit(p)/p.avg-1)*100;return`<tr><td><b>${p.secid}</b></td><td>${p.qty}</td><td>${p.avg.toFixed(2)}</td><td>${unit(p).toFixed(2)}</td><td class="${C(pn)}">${P(pn)}</td></tr>`}).join('');
+ return`<div class="card hero"><div class="hint">Отчёт на ${new Date().toLocaleDateString('ru-RU')}</div><div class="big">${R(tot)}</div><div class="${C(v-c)}">${v>=c?'Прибыль':'Убыток'} по бумагам: ${R(v-c)} (${P((v/c-1)*100)})</div><div class="hint" style="margin-top:6px">Вложено в бумаги ${R(c)} · комиссии ${R(S.fees)} · свободно ${R(S.cash)}</div></div>
+ <h2>Позиции</h2><div class="card" style="overflow-x:auto"><table class="tbl"><tr><th>Бумага</th><th>Шт</th><th>Ср. цена</th><th>Цена</th><th>±</th></tr>${rows}</table></div>
+ <h2>Структура</h2><div class="card">Акции ${(sv/tot*100).toFixed(0)}% · Облигации ${(bv/tot*100).toFixed(0)}% · Рубли ${(S.cash/tot*100).toFixed(0)}%</div>
+ <h2>Доход</h2><div class="card">Оценка за год: ${R(E.annual*.87)} после налога (≈ ${R(E.annual*.87/12)} в месяц)</div>
+ <h2>Последние сделки</h2><div class="card">${jr(5,false)}</div>
+ <button class="go" onclick="copyRep()">Скопировать отчёт</button><div style="height:14px"></div>${V.ai()}`},
+st(){const{tot}=calc();if(!S.positions.length)return'<div class="card">Сначала добавьте портфель во вкладке «Сделки».</div>';
+ const T=[['Акции',kv('share'),.55,'дивидендные «голубые фишки» (ядро) и немного акций роста'],['Облигации',kv('bond'),.40,'ОФЗ и надёжные корпоративные с купоном'],['Рубли',S.cash,.05,'резерв для докупок']];
+ const ph=['Накопление: регулярные взносы, реинвест выплат, 8–12 бумаг в ядре','Расширение: добавить отрасли и облигации с разными сроками','Баланс дохода и роста, ребалансировка раз в квартал','Защита капитала: больше облигаций, меньше риска','Масштаб: выплаты покрывают значительную часть расходов'];
+ let cur=S.steps.findIndex(s=>tot<s*12/(S.yield/100));
+ return`<div class="card hero"><b>Профиль</b><div class="hint" style="margin-top:4px">Умеренно-агрессивный · долгий горизонт · цель — пассивный доход ${R(S.steps[0])}/мес и выше. Ядро 70–80%, рост 10–20%, короткие сделки до 5–10%.</div></div>
+ <h2>Целевая структура</h2><div class="card">${T.map(([n,v,w,h])=>{const d=w*tot-v,now=v/tot*100;return`<div class="row" style="display:block"><div class="row" style="padding:0"><b>${n}</b><span>${now.toFixed(0)}% → ${(w*100).toFixed(0)}%</span></div>${bar(v/(w*tot)*100)}<div class="hint" style="margin-top:4px">${h}. ${Math.abs(d)<tot*.03?'В норме.':d>0?'Докупить ≈ '+R(d):'Избыток ≈ '+R(-d)}</div></div>`}).join('<div class="sep" style="margin:8px 0"></div>')}</div>
+ <h2>Этапы к цели</h2>${S.steps.map((s,i)=>`<div class="card tip" style="--c:${i==cur?'var(--ac)':'var(--bl)'}"><b>${i==cur?'▶ ':''}Этап ${i+1} · ${R(s)}/мес</b><div class="hint">Нужен капитал ≈ ${R(s*12/(S.yield/100))}</div>${ph[i]||''}</div>`).join('')}
+ <h2>Каждый месяц</h2><div class="card"><ul><li>Внести взнос ${R(S.monthly)}.</li><li>Реинвестировать полученные дивиденды и купоны.</li><li>Одной покупкой докупить класс, который отстаёт от цели (так меньше комиссий).</li><li>Записать сделки во вкладке «Сделки».</li><li>Раз в квартал сверить структуру; ребалансировать, если отклонение больше 10 п. п.</li></ul></div>
+ <h2>Правила риска</h2><div class="card"><ul><li>Одна бумага — не больше 15–20% портфеля.</li><li>Короткие сделки — не больше 5–10% капитала, с заранее заданным выходом и убытком.</li><li>Без плеча и фьючерсов на таком капитале.</li><li>Не продавать в панике; не вкладывать деньги, нужные в ближайшие 1–2 года.</li><li>Налоги: НДФЛ с дивидендов и купонов; льгота долгосрочного владения (ЛДВ) для акций больше 3 лет. Уточняйте у брокера.</li></ul></div>
+ <div class="hint">Это общая стратегия, а не индивидуальная инвестиционная рекомендация. Решения принимаете вы.</div>`},
+n(){const ks=S.positions.flatMap(kws),has=(i,k)=>(i.t+' '+(i.x||'')).toLowerCase().includes(k);
+ const chips=[['mine','Мои бумаги'],['all','Все'],...S.positions.map(p=>[p.secid,p.secid])].map(([k,l])=>`<button class="q${nf==k?' on':''}" onclick="nf='${k}';draw()">${l}</button>`).join('');
+ let L=N||[];if(nf=='mine')L=L.filter(i=>i.k||ks.some(k=>has(i,k)));
+ else if(nf!='all'){const p=S.positions.find(z=>z.secid==nf);L=L.filter(i=>i.k==nf||(p&&kws(p).some(k=>has(i,k))))}
+ NL=L.slice(0,30);
+ return`<div class="chips">${chips}</div><button class="go" style="margin-top:10px" onclick="loadNews()">${nbusy?'Загружаю…':'↻ Обновить новости'}</button>
+ ${nerr&&!nbusy?`<div class="hint" style="margin:12px 4px">⚠️ Не загрузилось источников: ${nerr} из ${ntot}. Проверьте интернет и откройте приложение из бота.</div>`:''}
+ <div style="margin-top:10px">${NL.map((i,k)=>`<a class="card news" onclick="openL(${k})"><b>${i.t.replace(/</g,'&lt;')}</b><div class="hint" style="margin-top:6px">${i.k?`<span class="chip">${i.k}</span> `:''}${i.s} · ${i.d.toLocaleString('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></a>`).join('')}
+ ${!NL.length&&!nbusy?`<div class="card hint">${N?(nf=='all'?'Новостей нет.':'Новостей по этим бумагам пока нет. Попробуйте «Все».'):'Нажмите «Обновить новости».'}</div>`:''}</div>
+ <div class="hint">Новости — информация, а не рекомендация к сделкам. Источники: Мосбиржа, РБК, Интерфакс и поиск новостей по каждой вашей бумаге.</div>`},
+s(){const F=(id,v,l)=>`<label class="hint">${l}</label><input id="${id}" type="number" inputmode="decimal" value="${v}">`;
+ return`<div class="card"><b>Записать операцию</b><select id="act"><option value="buy">Покупка</option><option value="sell">Продажа</option><option value="dep">Пополнение счёта</option></select>
+ <label class="hint">Дата сделки</label><input id="dt" type="date" value="${today()}"><input id="tk" placeholder="Тикер, например SBER" autocapitalize="characters"><input id="qty" type="number" inputmode="decimal" placeholder="Количество"><input id="pr" type="number" inputmode="decimal" placeholder="Цена за 1 шт (для пополнения — сумма)">
+ <button class="go" onclick="trade()">Записать</button><div class="hint" style="margin-top:6px">Комиссия ${S.fee}% учитывается автоматически. Цена облигации — в рублях за 1 штуку.</div></div>
+ <div class="card"><b>Настройки</b>${F('mo',S.monthly,'Взнос в месяц, ₽')}${F('dl',S.delay,'Через сколько месяцев начнёте увеличивать взнос')}${F('gr',S.growth,'Рост взноса в год после этого, %')}${F('yl',S.yield,'Ожидаемая доходность, % в год')}${F('fe',S.fee,'Комиссия брокера, % (проверьте тариф)')}<button class="go" onclick="setts()" style="margin-top:8px">Сохранить</button></div>
+ <div class="card"><b>Импорт портфеля</b><textarea id="imp" rows="6" placeholder="SBER 261 303.26&#10;SU26254RMFS1 40 913.54&#10;CASH 42025"></textarea><button class="go" onclick="imp()">Заменить портфель</button><div class="hint" style="margin-top:6px">Строка: ТИКЕР КОЛИЧЕСТВО СРЕДНЯЯ_ЦЕНА. CASH — свободные рубли.</div></div>
+ <h2>Журнал сделок</h2><div class="card">${jr(200,true)}</div>`}};
+function fmt(){const w=document.createTreeWalker($('app'),NodeFilter.SHOW_TEXT),ns=[];while(w.nextNode())ns.push(w.currentNode);
+ for(const n of ns){const p=n.parentElement;if(!p||p.closest('.n,.w,.m,textarea,option,input,script'))continue;
+  const t=n.nodeValue;if(!/\d/.test(t))continue;const cls=p.closest('.inc')?'w':'n',f=document.createDocumentFragment();let i=0;
+  t.replace(/\d+(?:[\s\u00a0\u202f.,]\d+)*(?:[\s\u00a0\u202f]?[%₽])?/g,(m,o)=>{f.append(t.slice(i,o));const e=document.createElement('span');e.className=cls;e.textContent=m;f.append(e);i=o+m.length;return m});
+  f.append(t.slice(i));n.replaceWith(f)}}
+function draw(){$('app').innerHTML=(status?`<div class="hint" style="margin-bottom:10px">${status}</div>`:'')+V[tab]();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t==tab));fmt()}
+const save=()=>store.set('s',JSON.stringify(S));
+function report(){const{v,c,tot}=calc();const pc=x=>(unit(x)*x.qty/tot*100).toFixed(0);
+ return`Мой портфель на Мосбирже (брокерский счёт, РФ). Профиль: умеренно-агрессивный, цель — пассивный доход ${R(S.steps[0])}/мес, затем рост цели.
+Стоимость: ${R(tot)} (бумаги ${R(v)}, свободно ${R(S.cash)}). Прибыль к цене покупки: ${P((v/c-1)*100)}.
+Взнос: ${R(S.monthly)}/мес (рост ${S.growth}%/год после ${S.delay} мес.), комиссия ${S.fee}%, ожидаемая доходность ${S.yield}%.
+Выплаты за год: ≈${R(E.annual)} до налога.
+Позиции:
+`+S.positions.map(p=>`${p.secid} (${p.kind=='bond'?'облигация':'акция'}): ${p.qty} шт, ср.цена ${p.avg.toFixed(2)}, сейчас ${unit(p).toFixed(2)}, доля ${pc(p)}%`).join('\n')+'\nСделки: '+(S.trades.slice(-10).map(t=>t.d+' '+(t.act=='dep'?'пополнение '+t.amt:(t.act=='buy'?'купил ':'продал ')+t.secid+' '+t.qty+'×'+t.price)).join('; ')||'нет')+'\nВопрос: '}
+function copyRep(){const t=report(),ok=()=>alert('Скопировано. Вставьте в чат с Claude и допишите вопрос.');
+ const fb=()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');ok()}catch(_){alert(t)}a.remove()};
+ if(navigator.clipboard)navigator.clipboard.writeText(t).then(ok,fb);else fb()}
+async function ask(t){const q=t||($('q')?$('q').value.trim():'');if(!q||busy)return;M.push({role:'user',content:q});busy=true;draw();
+ let a;try{const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':K,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+ body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:1000,system:'Ты осторожный консультант для частного инвестора на Мосбирже. Отвечай по-русски, кратко, называй риски и альтернативы, не обещай доходность. Это не индивидуальная инвестиционная рекомендация. '+report(),messages:M})});
+ const j=await r.json();a=(j.content||[]).map(x=>x.text||'').join('')||(j.error&&j.error.message)||'Пустой ответ'}catch(e){a='Нет связи с API (возможно, недоступен в вашем регионе или неверный ключ).'}
+ M.push({role:'assistant',content:a});busy=false;draw()}
+const today=()=>new Date().toLocaleDateString('sv-SE');
+function migrate(){if(!S.trades)S.trades=[];if(!S.base)S.base={cash:S.cash,fees:S.fees||0,positions:JSON.parse(JSON.stringify(S.positions))}}
+function rebuild(){const b=S.base;let cash=b.cash,fees=b.fees||0;const pos=b.positions.map(p=>({...p}));
+ for(const t of [...S.trades].sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.id-b.id)){
+  if(t.act=='dep'){cash+=t.amt;continue}
+  const g=t.qty*t.price;let x=pos.find(z=>z.secid==t.secid);
+  if(t.act=='buy'){cash-=g+t.fee;fees+=t.fee;if(x){x.avg=(x.avg*x.qty+g+t.fee)/(x.qty+t.qty);x.qty+=t.qty}else pos.push({secid:t.secid,kind:kind(t.secid),qty:t.qty,avg:(g+t.fee)/t.qty})}
+  else if(x){const q=Math.min(t.qty,x.qty);x.qty-=q;cash+=q*t.price-t.fee;fees+=t.fee}}
+ S.positions=pos.filter(p=>p.qty>0);S.cash=cash;S.fees=fees}
+const jr=(n,del)=>{const L=[...S.trades].sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:b.id-a.id).slice(0,n);
+ return L.length?L.map(t=>`<div class="row"><span><b>${t.act=='dep'?'Пополнение':(t.act=='buy'?'Покупка ':'Продажа ')+t.secid}</b><div class="hint">${t.d.split('-').reverse().join('.')}${t.act=='dep'?'':` · ${t.qty} × ${t.price} ₽ · комиссия ${R(t.fee)}`}</div></span><span>${t.act=='dep'?'+'+R(t.amt):R(t.qty*t.price)}${del?`<button class="x" onclick="delT(${t.id})">✕</button>`:''}</span></div>`).join(''):'<div class="hint">Пока нет записей. Бумаги из импорта в журнал не попадают.</div>'};
+function delT(id){if(!confirm('Удалить запись? Портфель будет пересчитан.'))return;S.trades=S.trades.filter(t=>t.id!=id);rebuild();save();refresh()}
+function trade(){const a=$('act').value,d=$('dt').value||today(),t=$('tk').value.trim().toUpperCase(),q=+$('qty').value,p=+$('pr').value;let tr;
+ if(a=='dep'){if(!p)return alert('Укажите сумму в поле «Цена»');tr={act:'dep',amt:p}}
+ else{if(!t||!q||!p)return alert('Заполните тикер, количество и цену');const g=q*p,f=g*S.fee/100;
+  if(a=='buy'&&S.cash<g+f&&!confirm('Не хватает свободных рублей. Всё равно записать?'))return;
+  if(a=='sell'){const x=S.positions.find(z=>z.secid==t);if(!x||x.qty<q)return alert('Нет такого количества в портфеле')}
+  tr={act:a,secid:t,qty:q,price:p,fee:f}}
+ S.trades.push({id:Date.now(),d,...tr});N=null;nf='mine';rebuild();save();tab='p';refresh()}
+function setts(){const n=id=>{const v=parseFloat($(id).value);return isNaN(v)?0:v};S.monthly=n('mo');S.delay=n('dl');S.growth=n('gr');S.yield=n('yl')||12;S.fee=n('fe');save();tab='g';draw()}
+function imp(){const L=$('imp').value.split('\n').map(l=>l.trim().replace(/,/g,'.').split(/\s+/)).filter(a=>a[0]);const pos=[];let cash=0;
+ for(const[t,q,p]of L){const T=t.toUpperCase();if(T=='CASH')cash=+q;else if(+q&&+p)pos.push({secid:T,kind:kind(T),qty:+q,avg:+p})}
+ if(!pos.length&&!cash)return alert('Не удалось разобрать строки');if(S.trades.length&&!confirm('Журнал сделок будет очищен. Продолжить?'))return;N=null;S.base={cash,fees:0,positions:pos};S.trades=[];rebuild();save();tab='p';refresh()}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw();scrollTo(0,0);if(tab=='n'&&!N&&!nbusy)loadNews();try{b.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}catch(_){}});
+store.get('k').then(v=>{K=v||''});
+store.get('s').then(v=>{try{if(v)S={...DEF,...JSON.parse(v)}}catch(_){}migrate();if(!S.positions.length)tab='s';draw();refresh()});
+
+// ===== v2: графики, налоги, сценарии целей, скринер, бэктест, резервная копия =====
+const iso=d=>d.toLocaleDateString('sv-SE'),mk=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+const PAL=['#e3c570','#4c7be0','#ef8c3a','#8fa8ff','#c9a24b','#6b7587','#b7c4ff'];
+const line=(ser,cols)=>{const W=300,h=110,all=ser.flat(),mn=Math.min(...all),mx=Math.max(...all),sp=mx-mn||1;
+ return`<svg viewBox="0 0 ${W} ${h}" style="width:100%;height:auto">${ser.map((a,k)=>`<polyline points="${a.map((v,i)=>(i/Math.max(1,a.length-1)*W).toFixed(1)+','+(h-6-(v-mn)/sp*(h-14)).toFixed(1)).join(' ')}" fill="none" stroke="${cols[k]}" stroke-width="2" stroke-linejoin="round"/>`).join('')}</svg>`};
+const donut=parts=>{const T=parts.reduce((a,p)=>a+p.v,0)||1,r=52,C=2*Math.PI*r;let off=0;
+ return`<svg viewBox="0 0 140 140" width="140" height="140"><g transform="rotate(-90 70 70)">${parts.map(p=>{const l=p.v/T*C,e=`<circle cx="70" cy="70" r="${r}" fill="none" stroke="${p.c}" stroke-width="18" stroke-dasharray="${l} ${C-l}" stroke-dashoffset="${-off}"/>`;off+=l;return e}).join('')}</g></svg>`};
+function monthsI(need,c,m,r,g,d,inf){r/=100;for(let i=1;i<=720;i++){c=c*(1+r/12)+m;if(i>d&&(i-d)%12==0)m*=1+g/100;if(c>=need*Math.pow(1+inf/100,i/12))return i}return null}
+function snap(){if(!S.positions.length||Object.keys(Q).length<S.positions.length)return;const d=today(),{tot}=calc();S.hist=S.hist||[];const l=S.hist[S.hist.length-1];
+ if(l&&l[0]==d)l[1]=Math.round(tot);else S.hist.push([d,Math.round(tot)]);S.hist=S.hist.slice(-400);save();draw()}
+const _r=refresh;refresh=async()=>{await _r();snap()};
+
+// Портфель: графики + налоги + отчёт и ИИ
+const taxCard=()=>{let tot=0;const L=S.positions.map(p=>{const g=(unit(p)-p.avg)*p.qty,d=(S.trades||[]).filter(t=>t.act=='buy'&&t.secid==p.secid).map(t=>t.d).sort()[0],tx=g>0?g*.13:0;tot+=tx;
+ let n='облигация';if(p.kind=='share'){n='дата покупки не записана';if(d){const e=new Date(d+'T00:00:00');e.setFullYear(e.getFullYear()+3);n=e<=new Date()?'ЛДВ уже можно применить':'ЛДВ с '+e.toLocaleDateString('ru-RU')}}
+ return`<div class="row"><span><b>${p.secid}</b><div class="hint">${n}</div></span><span>${g>0?R(tx):'—'}</span></div>`}).join('');
+ return`<h2>Налоги (оценка)</h2><div class="card">${L}<div class="row"><b>НДФЛ при продаже всего</b><b>${R(tot)}</b></div><div class="hint">13% с прибыли, без льгот. При доходе свыше 2,4 млн ₽ в год ставка выше. ЛДВ считается по записанным в журнале покупкам. Уточняйте у брокера.</div></div>`};
+V.p0=V.p;V.p=()=>{const h=V.p0();if(!S.positions.length)return h;const{tot}=calc();
+ const ps=[...S.positions].sort((a,b)=>unit(b)*b.qty-unit(a)*a.qty),top=ps.slice(0,5).map((p,i)=>({l:p.secid,v:unit(p)*p.qty,c:PAL[i]})),rest=ps.slice(5).reduce((a,p)=>a+unit(p)*p.qty,0);
+ const parts=[...top,...(rest>0?[{l:'Прочее',v:rest,c:PAL[5]}]:[]),{l:'Рубли',v:Math.max(0,S.cash),c:'#3a4254'}],H=(S.hist||[]).map(x=>x[1]);
+ return h+`<h2>Структура</h2><div class="card" style="display:flex;gap:14px;align-items:center">${donut(parts)}<div>${parts.map(p=>`<div><span class="dot" style="background:${p.c}"></span>${p.l} ${(p.v/tot*100).toFixed(0)}%</div>`).join('')}</div></div>
+ <h2>Динамика стоимости</h2><div class="card">${H.length>1?line([H],['#e3c570'])+`<div class="hint">с ${S.hist[0][0].split('-').reverse().join('.')}: ${R(H[0])} → ${R(H[H.length-1])}</div>`:'<div class="hint">История копится со дня первого запуска. График появится через несколько дней.</div>'}</div>`
+ +taxCard()+`<h2>Отчёт и ИИ</h2><button class="go" onclick="copyRep()">Скопировать отчёт для консультанта</button><div style="height:12px"></div>`+V.ai()};
+
+// Доход: выплаты по месяцам
+V.i0=V.i;V.i=()=>{const h=V.i0(),m={};for(const e of E.ev){const k=mk(e.d);m[k]=(m[k]||0)+e.a}
+ const d=new Date();d.setDate(1);const ks=[];for(let i=0;i<12;i++){ks.push([mk(d),d.getMonth()+1]);d.setMonth(d.getMonth()+1)}
+ const vals=ks.map(k=>m[k[0]]||0),mx=Math.max(...vals,1);
+ return h+`<h2>Выплаты по месяцам</h2><div class="card"><svg viewBox="0 0 300 120" style="width:100%">${vals.map((v,i)=>{const hh=v/mx*80;return`<rect x="${i*25+4}" y="${96-hh}" width="17" height="${Math.max(hh,1)}" rx="4" fill="#e3c570" opacity="${v?1:.25}"/><text x="${i*25+12.5}" y="112" fill="#929db0" font-size="9" text-anchor="middle">${ks[i][1]}</text>`}).join('')}</svg><div class="hint">Только объявленные выплаты и купоны на ближайшие 12 месяцев.</div></div>`};
+
+// Цели: сценарии и инфляция
+V.g=()=>{const{tot}=calc(),inf=S.infl??8,sc=[['Осторожный',S.yield-3],['Базовый',S.yield],['Оптимистичный',S.yield+3]];
+ return`<div class="hint" style="margin:0 4px 10px">Взнос ${R(S.monthly)}/мес, рост ${S.growth}% после ${S.delay} мес. Инфляция ${inf}% (меняется во вкладке «Сделки»). «С инфляцией» — цель в сегодняшних деньгах, нужная сумма растёт каждый год.</div>
+ ${S.steps.map(s=>{const nb=s*12/(S.yield/100);return`<div class="card"><div class="row" style="padding:0"><b>${R(s)}/мес</b><span class="chip">нужно ≈ ${R(nb)}</span></div>${bar(tot/nb*100)}
+ ${sc.map(([n,r])=>{const need=s*12/(r/100),a=tot>=need?0:months(need,tot,S.monthly,r,S.growth,S.delay),b=tot>=need?0:monthsI(need,tot,S.monthly,r,S.growth,S.delay,inf);return`<div class="row"><span>${n} <span class="hint">${r}%</span></span><span style="text-align:right">${Y(a)}<div class="hint">с инфляцией: ${Y(b)}</div></span></div>`}).join('')}</div>`}).join('')}
+ <div class="hint">Без налогов. Ориентир, а не прогноз.</div>`};
+
+// План = советы + стратегия
+V.pl=()=>V.a()+V.st();
+
+// Анализ: скринер и бэктест
+let SC=null,scBusy=false,scMin=0,scUp=false,BT=null,btBusy=false,btT='SBER',btY=3,btM=0,btErr='';
+const cand=async(secid,from)=>{const all=[];for(let st=0;;st+=500){const r=rows((await J(`/engines/stock/markets/shares/boards/TQBR/securities/${secid}/candles.json?interval=24&from=${from}&start=${st}&iss.meta=off`)).candles);all.push(...r);if(r.length<500)break}return all};
+async function scr1(secid){const ya=new Date();ya.setFullYear(ya.getFullYear()-1);
+ const[q,dv,cs]=await Promise.all([quote({secid,kind:'share'}),J('/securities/'+secid+'/dividends.json?iss.meta=off'),cand(secid,iso(new Date(Date.now()-420*864e5)))]);
+ const ds=rows(dv.dividends).filter(r=>r.value&&dd(r.registryclosedate)>ya).reduce((a,r)=>a+r.value,0),cl=cs.map(c=>c.close).filter(Boolean),sma=n=>cl.length>=n?cl.slice(-n).reduce((a,b)=>a+b,0)/n:null,s50=sma(50),s200=sma(200);
+ return{secid,price:q.unit,y:ds/q.unit*100,up:!!(s200&&q.unit>s200&&s50>s200),down:!!(s200&&q.unit<s200),r1:cl.length>200?(q.unit/cl[Math.max(0,cl.length-250)]-1)*100:null}}
+async function runScreen(){scBusy=true;SC=[];draw();const U=Object.keys(KW).filter(k=>!/^RU|^SBERP$/.test(k));
+ for(let i=0;i<U.length;i+=5){(await Promise.allSettled(U.slice(i,i+5).map(scr1))).forEach(x=>{if(x.status=='fulfilled')SC.push(x.value)});draw()}scBusy=false;draw()}
+async function runBT(){btT=$('bt-t').value.trim().toUpperCase()||'SBER';btY=+$('bt-y').value;btM=+$('bt-m').value||S.monthly;btBusy=true;BT=null;btErr='';draw();
+ try{const from=iso(new Date(Date.now()-btY*365.25*864e5)),[cs,dv]=await Promise.all([cand(btT,from),J('/securities/'+btT+'/dividends.json?iss.meta=off')]);
+  const divs=rows(dv.dividends).filter(r=>r.value&&r.registryclosedate>=from).map(r=>[r.registryclosedate,r.value]).sort(),C=cs.filter(c=>c.close);if(C.length<30)throw 0;
+  const f=1-S.fee/100,n=new Set(C.map(c=>c.begin.slice(0,7))).size,total=n*btM;let sh=0,inv=0,mon='',di=0,peak=0,mdd=0,lsh=total*f/C[0].close;const val=[],ivs=[];
+  for(const c of C){const day=c.begin.slice(0,10),m=day.slice(0,7);if(m!=mon){mon=m;sh+=btM*f/c.close;inv+=btM}
+   while(di<divs.length&&divs[di][0]<=day){sh+=sh*divs[di][1]/c.close;lsh+=lsh*divs[di][1]/c.close;di++}
+   const v=sh*c.close;val.push(v);ivs.push(inv);peak=Math.max(peak,v);mdd=Math.min(mdd,v/peak-1)}
+  const k=Math.ceil(val.length/120),pick=a=>a.filter((_,i)=>i%k==0);
+  BT={inv,v:val[val.length-1],lump:lsh*C[C.length-1].close,total,mdd:mdd*100,ser:[pick(val),pick(ivs)]}}catch(_){btErr='Не удалось получить данные по '+btT+'. Проверьте тикер и интернет.'}
+ btBusy=false;draw()}
+V.an=()=>{const L=(SC||[]).filter(r=>r.y>=scMin&&(!scUp||r.up)).sort((a,b)=>b.y-a.y),own=new Set(S.positions.map(p=>p.secid));
+ return`<h2>Скринер акций</h2><div class="card"><div class="hint" style="margin-bottom:6px">Дивидендная доходность за 12 месяцев и тренд по средним цены за 50 и 200 дней, по ~25 крупным бумагам Мосбиржи.</div>
+ <label class="hint">Минимальная доходность, %</label><input type="number" inputmode="decimal" value="${scMin}" onchange="scMin=+this.value||0;draw()">
+ <button class="q${scUp?' on':''}" onclick="scUp=!scUp;draw()">Только тренд вверх</button>
+ <button class="go" style="margin-top:8px" onclick="runScreen()">${scBusy?'Загружаю…':'Запустить скринер'}</button>
+ ${SC&&SC.length?`<table class="tbl sc" style="margin-top:10px"><tr><th>Бумага</th><th>Цена</th><th>Дивид.</th><th>Тренд</th><th>1 год</th></tr>${L.map(r=>`<tr><td><b>${r.secid}</b>${own.has(r.secid)?' ✔':''}</td><td>${r.price.toFixed(1)}</td><td>${r.y.toFixed(1)}%</td><td>${r.up?'↑':r.down?'↓':'→'}</td><td class="${r.r1==null?'':C(r.r1)}">${r.r1==null?'—':P(r.r1)}</td></tr>`).join('')}</table>`:''}
+ <div class="hint" style="margin-top:8px">Очень высокая доходность часто признак разовой выплаты или проблем. ✔ — уже в вашем портфеле. Это фильтр для изучения, а не совет купить.</div></div>
+ <h2>Бэктест: ежемесячные покупки</h2><div class="card"><div class="hint" style="margin-bottom:6px">Что было бы, если бы вы каждый месяц покупали акцию на фиксированную сумму и реинвестировали дивиденды. Учтена комиссия ${S.fee}%.</div>
+ <input id="bt-t" value="${btT}" placeholder="Тикер" autocapitalize="characters"><select id="bt-y">${[1,3,5].map(y=>`<option value="${y}"${y==btY?' selected':''}>${y} ${y==1?'год':y<5?'года':'лет'}</option>`).join('')}</select><input id="bt-m" type="number" inputmode="decimal" value="${btM||S.monthly}">
+ <div class="hint">Сумма покупки в месяц, ₽</div><button class="go" style="margin-top:8px" onclick="runBT()">${btBusy?'Считаю…':'Проверить на истории'}</button>
+ ${btErr?`<div class="hint dn" style="margin-top:8px">${btErr}</div>`:''}
+ ${BT?`<div style="margin-top:12px">${line(BT.ser,['#e3c570','#4c7be0'])}<div class="hint">золотая — стоимость, синяя — вложено</div>
+ <div class="row"><span>Вложено</span><b>${R(BT.inv)}</b></div><div class="row"><span>Стоимость сейчас</span><b>${R(BT.v)}</b></div><div class="row"><span>Результат</span><b class="${C(BT.v-BT.inv)}">${P((BT.v/BT.inv-1)*100)}</b></div>
+ <div class="row"><span>Макс. просадка</span><b class="dn">${BT.mdd.toFixed(0)}%</b></div><div class="row"><span>Если вложить всё сразу в начале</span><b>${R(BT.lump)}</b></div></div>`:''}
+ <div class="hint" style="margin-top:8px">Прошлые результаты не гарантируют будущих. Налоги не учтены, дивиденды условно считаются в дату закрытия реестра.</div></div>`};
+
+// Сделки: инфляция и резервная копия
+V.s0=V.s;V.s=()=>V.s0()+`<h2>Дополнительно</h2><div class="card"><label class="hint">Инфляция, % в год (для расчёта целей)</label><input id="inf" type="number" inputmode="decimal" value="${S.infl??8}"><button class="go" onclick="S.infl=parseFloat($('inf').value)||0;save();tab='g';draw()">Сохранить</button></div>
+ <h2>Резервная копия</h2><div class="card"><div class="hint" style="margin-bottom:8px">Сохраните копию данных в заметках, чтобы не потерять их при смене телефона или очистке.</div><button class="go" onclick="exportData()">Скопировать данные</button><textarea id="bk" rows="4" placeholder="Для восстановления вставьте сюда копию" style="margin-top:10px"></textarea><button class="go" onclick="importData()">Восстановить из копии</button></div>`;
+function exportData(){const t=JSON.stringify(S),fb=()=>{$('bk').value=t;$('bk').select();alert('Скопируйте текст из поля вручную.')};if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>alert('Данные скопированы. Вставьте их в заметки.'),fb);else fb()}
+function importData(){try{const p=JSON.parse($('bk').value);if(!Array.isArray(p.positions)||typeof p.cash!='number')throw 0;if(!confirm('Текущие данные будут заменены. Продолжить?'))return;S={...DEF,...p};migrate();save();tab='p';refresh()}catch(_){alert('Не удалось прочитать копию. Вставьте весь скопированный текст.')}}
+(function(){const c=document.getElementById('sky'),f=document.getElementById('fly');if(!c||!f)return;const x=c.getContext('2d'),y=f.getContext('2d');
+let W,H,rocks=[],comets=[],next=0,last=0;const rnd=(a,b)=>a+Math.random()*(b-a);
+function size(){const D=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;for(const[k,q]of[[c,x],[f,y]]){k.width=W*D;k.height=H*D;q.setTransform(D,0,0,D,0,0)}
+ rocks=Array.from({length:8},()=>{const r=rnd(2.5,7),pts=[];for(let i=0;i<7;i++){const a=i/7*6.283,k=rnd(.65,1.15);pts.push([Math.cos(a)*r*k,Math.sin(a)*r*k*.78])}return{x:rnd(0,W),y:rnd(0,H),rot:rnd(0,6.28),pts,o:rnd(.25,.5)}});
+ x.clearRect(0,0,W,H);rocks.forEach(rock)}
+function rock(a){x.save();x.translate(a.x,a.y);x.rotate(a.rot);x.beginPath();a.pts.forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.closePath();
+ x.fillStyle=`rgba(92,104,130,${a.o})`;x.fill();x.strokeStyle=`rgba(227,197,112,${a.o*.6})`;x.lineWidth=.6;x.stroke();x.restore()}
+function spawn(){const dir=Math.random()<.5?1:-1,ang=rnd(.3,.55),sp=rnd(120,190);
+ comets.push({x:dir>0?rnd(-.1,.4)*W:rnd(.6,1.1)*W,y:rnd(-.05,.4)*H,vx:dir*Math.cos(ang)*sp,vy:Math.sin(ang)*sp,len:rnd(80,140),age:0,life:rnd(3.5,5.5)})}
+function comet(m){const k=Math.hypot(m.vx,m.vy),tx=m.x-m.vx/k*m.len,ty=m.y-m.vy/k*m.len,e=Math.min(1,m.age*1.5,(m.life-m.age)*1.5),al=.75*Math.max(0,e);
+ const g=y.createLinearGradient(tx,ty,m.x,m.y);g.addColorStop(0,'rgba(120,150,255,0)');g.addColorStop(.7,`rgba(170,190,255,${al*.35})`);g.addColorStop(1,`rgba(255,238,200,${al})`);
+ y.strokeStyle=g;y.lineWidth=1.3;y.lineCap='round';y.beginPath();y.moveTo(tx,ty);y.lineTo(m.x,m.y);y.stroke();
+ const h=y.createRadialGradient(m.x,m.y,0,m.x,m.y,5);h.addColorStop(0,`rgba(255,236,190,${al*.8})`);h.addColorStop(1,'rgba(255,236,190,0)');y.fillStyle=h;y.beginPath();y.arc(m.x,m.y,5,0,6.283);y.fill()}
+function frame(t){requestAnimationFrame(frame);if(document.hidden){last=t;return}const dt=Math.min(.05,Math.max(0,(t-last)/1000));last=t;y.clearRect(0,0,W,H);
+ if(t>next&&comets.length<2){spawn();next=t+rnd(3000,7000)}
+ comets=comets.filter(m=>m.age<m.life);for(const m of comets){m.age+=dt;m.x+=m.vx*dt;m.y+=m.vy*dt;comet(m)}}
+size();addEventListener('resize',size);requestAnimationFrame(frame)})();
+</script></body></html>
