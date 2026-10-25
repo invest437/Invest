@@ -54,6 +54,8 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 <nav><button data-t="p"><span>💼</span>Портфель</button><button data-t="i"><span>💰</span>Доход</button><button data-t="g"><span>🎯</span>Цели</button><button data-t="pl"><span>🧭</span>План</button><button data-t="n"><span>📰</span>Новости</button><button data-t="an"><span>🔬</span>Анализ</button><button data-t="s"><span>✍️</span>Сделки</button></nav>
 <script>
 const tg=(window.Telegram&&window.Telegram.WebApp)||{};try{tg.ready();tg.expand();tg.setHeaderColor('#06070d');tg.setBackgroundColor('#06070d')}catch(_){}
+const OWNER=8716613685,uid=(tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.id)||0;
+if(uid!==OWNER){document.body.innerHTML='<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:#929db0;font:600 16px -apple-system,sans-serif;text-align:center;padding:20px"><div style="font-size:42px">🔒</div>Приватное приложение<div style="font-size:13px;font-weight:500">Откройте его из своего бота в Telegram</div></div>';throw new Error('locked')}
 const $=id=>document.getElementById(id);
 window.onerror=(m,u,l)=>{$('app').innerHTML='<div class="card dn">Ошибка: '+m+' (строка '+l+')</div>'};
 const ls=k=>{try{return localStorage.getItem(k)}catch(_){return null}};
