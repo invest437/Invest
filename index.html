@@ -92,7 +92,7 @@ async function refresh(){status='Обновляю котировки…';draw();
  const res=await Promise.all(S.positions.map(async p=>{const[q,e]=await Promise.allSettled([quote(p),events(p,t,ya,yn)]);return{p,q,e}}));
  Q={};E={ev:[],annual:0,by:{}};const bq=[],be=[];
  for(const{p,q,e}of res){if(q.status=='fulfilled')Q[p.secid]=q.value;else bq.push(p.secid+' ('+((q.reason&&q.reason.message)||'ошибка')+')');
-  if(e.status=='fulfilled'){E.ev.push(...e.value.o);E.annual+=e.value.a;E.by[p.secid]=e.value.a}else be.push(p.secid)}
+  if(e.status=='fulfilled'){E.ev.push(...e.value.o);E.annual+=e.value.a;E.by[p.secid]=e.value.a}else be.push(p.secid+' ('+((e.reason&&e.reason.message)||'ошибка')+')')}
  E.ev.sort((a,b)=>a.d-b.d);status=(bq.length?'⚠️ Нет цен: '+bq.join(', ')+'. ':'')+(be.length?'Нет данных о выплатах: '+be.join(', ')+'.':'');draw()}
 const unit=p=>(Q[p.secid]||{unit:p.avg}).unit;
 const kv=k=>S.positions.filter(p=>p.kind==k).reduce((a,p)=>a+unit(p)*p.qty,0);
@@ -331,6 +331,113 @@ V.s0=V.s;V.s=()=>V.s0()+`<h2>Дополнительно</h2><div class="card"><l
  <h2>Резервная копия</h2><div class="card"><div class="hint" style="margin-bottom:8px">Сохраните копию данных в заметках, чтобы не потерять их при смене телефона или очистке.</div><button class="go" onclick="exportData()">Скопировать данные</button><textarea id="bk" rows="4" placeholder="Для восстановления вставьте сюда копию" style="margin-top:10px"></textarea><button class="go" onclick="importData()">Восстановить из копии</button></div>`;
 function exportData(){const t=JSON.stringify(S),fb=()=>{$('bk').value=t;$('bk').select();alert('Скопируйте текст из поля вручную.')};if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>alert('Данные скопированы. Вставьте их в заметки.'),fb);else fb()}
 function importData(){try{const p=JSON.parse($('bk').value);if(!Array.isArray(p.positions)||typeof p.cash!='number')throw 0;if(!confirm('Текущие данные будут заменены. Продолжить?'))return;S={...DEF,...p};migrate();save();tab='p';refresh()}catch(_){alert('Не удалось прочитать копию. Вставьте весь скопированный текст.')}}
+
+// ===== v3: выплаты, новости из всех источников с кратким разбором =====
+async function divRows(id){let err;for(const u of['/securities/'+id+'/dividends.json?iss.meta=off','/securities/'+id+'/dividends.json','/securities/'+id+'/dividends.json?iss.only=dividends']){
+ try{const j=await J(u),b=j.dividends||j[Object.keys(j).find(k=>/dividend/i.test(k))];if(b)return rows(b)}catch(e){err=e}}throw err||new Error('нет данных')}
+events=async function(p,t,ya,yn){const o=[];let a=0;
+ if(p.kind=='share'){for(const r of await divRows(p.secid)){if(!r.value||!r.registryclosedate)continue;const d=dd(r.registryclosedate);
+   if(d>=t)o.push({d,s:p.secid,k:'дивиденд',a:r.value*p.qty});if(d>ya&&d<=yn)a+=r.value*p.qty}}
+ else{const j=await J('/securities/'+p.secid+'/bondization.json?iss.meta=off&iss.only=coupons&limit=100');
+  for(const r of rows(j.coupons)){if(!r.value)continue;const d=dd(r.coupondate);if(d>=t&&d<=yn){a+=r.value*p.qty;o.push({d,s:p.secid,k:'купон',a:r.value*p.qty})}}}
+ return{o,a}};
+
+let GEN=[],NWC={},nwF='mine',nwBusy=false,nwOk=0,nwTot=0,NWL=[];
+const stripH=h=>String(h||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/g,' ').replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/&lt;|&gt;/g,' ').replace(/\s+/g,' ').trim();
+const tmo=(u,ms=7000)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(u,{signal:c.signal}).finally(()=>clearTimeout(t))};
+function parseXml(x,src){const d=new DOMParser().parseFromString(x,'text/xml'),it=[...d.querySelectorAll('item,entry')];if(!it.length)throw 0;
+ return it.map(i=>{const g=n=>{const e=i.querySelector(n);return e?e.textContent:''},le=i.querySelector('link');
+  return{t:stripH(g('title')),l:(g('link')||(le&&le.getAttribute('href'))||'').trim(),d:new Date(g('pubDate')||g('published')||g('updated')),s:src,x:stripH(g('description')||g('summary')||g('content'))}}).filter(i=>i.t&&i.l&&!isNaN(i.d))}
+async function fetchRss(u,src){const e=encodeURIComponent(u);
+ const tries=[()=>tmo(u).then(r=>r.text()).then(x=>parseXml(x,src)),
+  ()=>tmo('https://api.allorigins.win/raw?url='+e).then(r=>r.text()).then(x=>parseXml(x,src)),
+  ()=>tmo('https://corsproxy.io/?'+e).then(r=>r.text()).then(x=>parseXml(x,src)),
+  ()=>tmo('https://api.rss2json.com/v1/api.json?rss_url='+e).then(r=>r.json()).then(j=>{if(j.status!='ok')throw 0;return j.items.map(i=>({t:stripH(i.title),l:i.link,d:new Date(String(i.pubDate).replace(' ','T')+'Z'),s:src,x:stripH(i.description)})).filter(i=>!isNaN(i.d))})];
+ for(const f of tries){try{const r=await f();if(r.length)return r}catch(_){}}throw new Error('недоступен')}
+const FEEDS=[['РБК','https://rssexport.rbc.ru/rbcnews/news/30/full.rss'],['Интерфакс','https://www.interfax.ru/rss.asp'],['Коммерсантъ','https://www.kommersant.ru/RSS/news.xml'],['Ведомости','https://www.vedomosti.ru/rss/news'],['Прайм','https://1prime.ru/export/rss2/index.xml'],['Финам','https://www.finam.ru/analysis/conews/rsspoint/']];
+const moexNews=()=>J('/sitenews.json?iss.meta=off').then(j=>rows(j.sitenews||j[Object.keys(j)[0]]).map(r=>({t:r.title,l:'https://www.moex.com/n'+r.id,d:new Date(String(r.published_at).replace(' ','T')+'+03:00'),s:'Мосбиржа',x:''})).filter(i=>!isNaN(i.d)));
+const gnews=async p=>{const r=await fetchRss('https://news.google.com/rss/search?q='+encodeURIComponent(qname(p)+(p.kind=='bond'?' облигации':' акции')+' when:7d')+'&hl=ru&gl=RU&ceid=RU:ru','Новости');
+ NWC[p.secid]=r.map(i=>{const m=i.t.match(/^(.*) - ([^-]+)$/);return{...i,t:m?m[1]:i.t,s:m?m[2]:'Новости'}})};
+async function loadNews(){if(nwBusy)return;nwBusy=true;nbusy=true;nwOk=0;GEN=[];const todo=S.positions.filter(p=>!NWC[p.secid]);nwTot=1+FEEDS.length+todo.length;draw();
+ const job=f=>f().then(()=>{nwOk++}).catch(()=>{}).finally(()=>draw());
+ await Promise.all([job(()=>moexNews().then(r=>GEN.push(...r))),...FEEDS.map(([s,u])=>job(()=>fetchRss(u,s).then(r=>GEN.push(...r)))),...todo.map(p=>job(()=>gnews(p)))]);
+ N=GEN;nwBusy=false;nbusy=false;draw()}
+openL=function(i){const u=NWL[i].l;try{tg.openLink(u)}catch(_){window.open(u,'_blank')}};
+
+const SENT=t=>t.replace(/([.!?])\s+/g,'$1|').split('|').map(x=>x.trim()).filter(x=>x.length>25);
+const TAGS=[['💰','Дивиденды',/дивиденд/i],['📊','Отчётность',/(чист[а-яё]* прибыл|выручк|ebitda|убыт|финансов[а-яё]* результат|отчётност|мсфо|рсбу)/i],['🏦','Ставка ЦБ',/(ключев[а-яё]* ставк|ставк[а-яё]* цб)/i],['⚖️','Санкции и риски',/(санкц|огранич|запрет|штраф|арест)/i],['⭐','Рейтинг',/рейтинг/i],['🔁','Выкуп и допэмиссия',/(байбэк|выкуп акций|допэмисс|spo\b|размещени[а-яё]* акций)/i]];
+const cut=(x,n)=>x.length>n?x.slice(0,n-1)+'…':x;
+function dig(i){const full=i.t+'. '+(i.x||''),ss=SENT(i.x||''),tags=[],facts=[];
+ const sum=cut(ss.filter(x=>x.toLowerCase()!=i.t.toLowerCase()).slice(0,2).join(' '),260);
+ for(const[e,n,re]of TAGS)if(re.test(full)){tags.push(e+' '+n);const f=[i.t,...ss].find(x=>re.test(x));if(f&&facts.length<2&&!sum.includes(f)&&f!=i.t)facts.push(cut(f,170))}
+ const pos=(full.match(/(рост|выросл|увелич|рекорд|повыс|прибыл|одобр)/gi)||[]).length,neg=(full.match(/(снижен|упал|убыт|сократ|санкц|отмен|понизил|дефолт|штраф|падени)/gi)||[]).length;
+ return{tags,facts,sum,tone:pos>neg?'🟢 скорее позитивно':neg>pos?'🔴 скорее негативно':'⚪ нейтрально'}}
+const esc2=x=>String(x).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function newsData(){const pos=S.positions,ks=pos.map(p=>[p,kws(p)]),seen=new Set(),bond=pos.some(p=>p.kind=='bond');
+ let all=GEN.map(i=>({...i,ps:ks.filter(([p,k])=>{const h=(i.t+' '+(i.x||'')).toLowerCase();return k.some(w=>h.includes(w))}).map(([p])=>p.secid)}));
+ for(const p of pos)for(const i of NWC[p.secid]||[])all.push({...i,ps:[p.secid]});
+ all=all.filter(i=>{const k=i.t.toLowerCase();if(seen.has(k))return false;seen.add(k);return true}).map(i=>({...i,g:dig(i),imp:''}));
+ for(const i of all){const h=i.t+' '+(i.x||'');const m=[];
+  if(bond&&/ключев[а-яё]* ставк|ставк[а-яё]* цб/i.test(h)){m.push('Влияет на ваши облигации: при снижении ставки они обычно дорожают, при росте дешевеют.');if(!i.ps.length)i.ps=['ставка']}
+  if(/дивиденд/i.test(h)&&i.ps.length&&i.ps[0]!='ставка')m.push('Влияет на пассивный доход: проверьте дату закрытия реестра.');
+  i.imp=m.join(' ')}
+ return{all,mine:all.filter(i=>i.ps.length)}}
+const clip2=(t,m)=>{const fb=()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');alert(m)}catch(_){alert(t)}a.remove()};if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>alert(m),fb);else fb()};
+function copyNews(){clip2('Разбери эти новости для моего портфеля (бумаги: '+S.positions.map(p=>p.secid).join(', ')+'). Выдели главное, влияние на каждую бумагу и что стоит проверить. Не давай прямых указаний покупать или продавать.\n\n'+NWL.slice(0,15).map((i,k)=>`${k+1}. ${i.t} (${i.s}, ${i.d.toLocaleDateString('ru-RU')})${i.x?'\n'+cut(i.x,300):''}`).join('\n\n'),'Новости скопированы. Вставьте их в чат с Claude.')}
+V.n=()=>{const{all,mine}=newsData(),pos=S.positions;
+ const chips=[['mine','Мои бумаги'],['all','Все'],...pos.map(p=>[p.secid,p.secid])].map(([k,l])=>`<button class="q${nwF==k?' on':''}" onclick="nwF='${k}';draw()">${l}</button>`).join('');
+ const L=(nwF=='all'?all:nwF=='mine'?mine:mine.filter(i=>i.ps.includes(nwF))).sort((a,b)=>b.d-a.d);NWL=L.slice(0,40);
+ const st=nwBusy?`Загружаю источники: ${nwOk} из ${nwTot}…`:nwOk==0&&GEN.length==0?'⚠️ Источники недоступны. Проверьте интернет и откройте приложение из бота.':`Загружено источников: ${nwOk} из ${nwTot}${nwOk<nwTot?' (часть недоступна)':''}`;
+ const dg=pos.map(p=>{const l2=mine.filter(i=>i.ps.includes(p.secid));if(!l2.length)return`<div class="row"><b>${p.secid}</b><span class="hint">свежих новостей нет</span></div>`;
+  const tg=[...new Set(l2.flatMap(i=>i.g.tags))].slice(0,3).join(' · '),up=l2.filter(i=>i.g.tone[0]=='🟢').length,dn=l2.filter(i=>i.g.tone[0]=='🔴').length;
+  return`<div class="row"><span><b>${p.secid}</b>${tg?`<div class="hint">${tg}</div>`:''}</span><span class="hint">${l2.length} нов. · 🟢${up} 🔴${dn}</span></div>`}).join('');
+ return`<div>${chips}</div><button class="go sm" onclick="loadNews()">↻ Обновить новости</button>
+ <div class="hint" style="margin:10px 4px">${st}</div>
+ ${nwF=='mine'&&pos.length?`<h2>Главное по вашим бумагам</h2><div class="card">${dg}<div class="hint" style="margin-top:6px">Разбор автоматический, по ключевым словам. Это не ИИ и не рекомендация.</div></div>`:''}
+ <h2>Новости</h2>${NWL.map((i,k)=>`<a class="card news" onclick="openL(${k})"><b>${esc2(i.t)}</b>
+ <div style="margin-top:6px">${i.ps.map(t=>`<span class="chip">${esc2(t)}</span> `).join('')}${i.g.tags.map(t=>`<span class="chip">${t}</span> `).join('')}<span class="chip">${i.g.tone}</span></div>
+ ${i.g.sum?`<div style="margin-top:8px">${esc2(i.g.sum)}</div>`:''}${i.g.facts.map(f=>`<div class="hint" style="margin-top:4px">• ${esc2(f)}</div>`).join('')}
+ ${i.imp?`<div class="hint" style="margin-top:6px;color:var(--ac)">${i.imp}</div>`:''}
+ <div class="hint" style="margin-top:6px">${esc2(i.s)} · ${i.d.toLocaleString('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></a>`).join('')}
+ ${!NWL.length&&!nwBusy?`<div class="card hint">${nwF=='mine'?'Новостей по вашим бумагам пока нет. Откройте «Все» или обновите.':'Новостей нет.'}</div>`:''}
+ ${NWL.length?'<button class="go" style="margin-top:6px" onclick="copyNews()">Скопировать для разбора в чате с Claude</button>':''}
+ <div class="hint" style="margin-top:10px">Источники: Мосбиржа, РБК, Интерфакс, Коммерсантъ, Ведомости, Прайм, Финам и поиск по вашим бумагам. Информация, а не рекомендация к сделкам.</div>`};
+
+// ===== v4: детальный график выплат, идеи покупки и продажи =====
+const MN=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'],MF=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+let payK=null;
+const sh=v=>v>=1000?(v/1000).toFixed(v>=10000?0:1).replace('.',',')+'к':String(Math.round(v));
+function payChart(){const m={};for(const e of E.ev){const k=mk(e.d);(m[k]=m[k]||[]).push(e)}
+ const d=new Date();d.setDate(1);const ks=[];for(let i=0;i<12;i++){ks.push([mk(d),d.getMonth(),d.getFullYear()]);d.setMonth(d.getMonth()+1)}
+ const sum=k=>(m[k]||[]).reduce((a,e)=>a+e.a,0),vals=ks.map(k=>sum(k[0])),mx=Math.max(...vals,1),tot=vals.reduce((a,b)=>a+b,0);
+ if(!payK||!ks.some(k=>k[0]==payK))payK=(ks.find(k=>sum(k[0])>0)||ks[0])[0];
+ const sel=(m[payK]||[]).slice().sort((a,b)=>a.d-b.d),sk=ks.find(k=>k[0]==payK);
+ return`<div class="inc"><h2>Выплаты по месяцам</h2><div class="card"><div class="hint" style="margin-bottom:8px">За 12 месяцев: ${R(tot)}, в среднем ${R(tot/12)} в месяц. Нажмите на столбец, чтобы увидеть детали.</div>
+ <div style="overflow-x:auto"><div style="display:flex;gap:6px;min-width:600px;align-items:flex-end;height:150px">${ks.map(k=>{const v=sum(k[0]),on=k[0]==payK;
+  return`<div onclick="payK='${k[0]}';draw()" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;cursor:pointer"><div class="hint" style="font-size:10px;white-space:nowrap">${v?sh(v)+' ₽':''}</div><div style="width:100%;height:${Math.max(v/mx*100,v?6:2)}%;border-radius:6px;background:${on?'linear-gradient(#f6dc8c,#c9a24b)':'#e3c570'};opacity:${v?(on?1:.6):.2}"></div><div class="hint" style="font-size:11px;margin-top:4px;${on?'color:#e3c570':''}">${MN[k[1]]}${k[1]==0?' ’'+String(k[2]).slice(2):''}</div></div>`}).join('')}</div></div></div>
+ <h2>${MF[sk[1]]} ${sk[2]} · ${R(sum(payK))}</h2><div class="card">${sel.length?sel.map(e=>`<div class="row"><span>${e.d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'})} · <b>${e.s}</b> <span class="hint">${e.k}</span></span><b>${R(e.a)}</b></div>`).join(''):'<div class="hint">В этом месяце объявленных выплат нет.</div>'}</div>
+ <div class="hint">Только объявленные дивиденды и купоны. Дивиденды по акциям появятся, когда биржа отдаст данные.</div></div>`}
+V.i=()=>V.i0()+payChart();
+
+const SECT={SBER:'Банки',VTBR:'Банки',T:'Финансы',MOEX:'Финансы',GAZP:'Нефть и газ',LKOH:'Нефть и газ',ROSN:'Нефть и газ',TATN:'Нефть и газ',SNGS:'Нефть и газ',NVTK:'Нефть и газ',GMKN:'Металлы',PLZL:'Металлы',CHMF:'Металлы',NLMK:'Металлы',MAGN:'Металлы',RUAL:'Металлы',ALRS:'Металлы',MTSS:'Телеком',YDEX:'IT',OZON:'Ритейл и IT',X5:'Ритейл',MGNT:'Ритейл',AFLT:'Транспорт',PHOR:'Химия',HYDR:'Энергетика',IRAO:'Энергетика'};
+const icard=(tag,cls,title,why,risk)=>`<div class="card idea"><span class="tag ${cls}">${tag}</span><b>${title}</b><div class="why"><span class="hint">Почему:</span> ${why}</div><div class="why"><span class="hint">Риск:</span> ${risk}</div></div>`;
+function buyBlock(){const{tot}=calc();if(!S.positions.length)return'';const fee=v=>R(v*S.fee/100),T=tot+S.monthly,avail=Math.max(S.cash,0)+S.monthly;
+ let h='<h2>Что купить и почему</h2><div class="hint" style="margin:0 4px 8px">Идеи строятся по вашей структуре и данным биржи (дивиденды, тренд). Это материал для изучения, а не индивидуальная инвестиционная рекомендация.</div>',cards=[];
+ const bonds=S.positions.filter(p=>p.kind=='bond').sort((a,b)=>(/^SU/.test(b.secid)-/^SU/.test(a.secid))||unit(b)*b.qty-unit(a)*a.qty),db=.4*T-kv('bond');
+ let bondAmt=0;if(bonds.length&&db>tot*.03){const p=bonds[0],pn=(unit(p)/p.avg-1)*100;bondAmt=Math.min(db,avail*.5);const q=Math.max(1,Math.floor(bondAmt/unit(p)));
+  cards.push(icard('КУПИТЬ','t-buy',`${p.secid}: докупить ≈ ${q} шт на ${R(q*unit(p))}`,`доля облигаций ${(kv('bond')/tot*100).toFixed(0)}% при ориентире 35–40%. Бумага у вас уже есть. ${/^SU/.test(p.secid)?'ОФЗ — долг государства, риск неплатежа минимальный. ':'Корпоративная облигация: проверьте рейтинг эмитента. '}${pn<-3?`Цена на ${(-pn).toFixed(1)}% ниже вашей цены покупки, поэтому новая покупка выходит выгоднее. `:''}Купоны дают предсказуемый доход.`,`цены облигаций падают при росте ключевой ставки, если держать до погашения, это не потеря. Комиссия ≈ ${fee(q*unit(p))}.`))}
+ if(!SC||!SC.length)cards.push(`<div class="card"><div class="hint" style="margin-bottom:8px">${scBusy?'Загружаю данные по акциям…':'Чтобы подобрать идеи по акциям, нужно загрузить данные биржи (около минуты).'}</div><button class="go" onclick="runScreen()">${scBusy?'Загружаю…':'Подобрать идеи по акциям'}</button></div>`);
+ else{const own={},w={};S.positions.forEach(p=>{const v=unit(p)*p.qty/tot;own[p.secid]=v;if(p.kind=='share'){const s=SECT[p.secid]||'Другое';w[s]=(w[s]||0)+v}});
+  const pool=SC.filter(r=>r.y>=4&&r.y<=25&&!r.down&&(own[r.secid]||0)<.12&&(w[SECT[r.secid]||'Другое']||0)<.35).map(r=>{const sec=SECT[r.secid]||'Другое',fresh=!(w[sec]>.05);return{...r,sec,fresh,score:r.y+(r.up?3:0)+(fresh?3:0)+Math.min(Math.max(r.r1||0,0),30)/10}}).sort((a,b)=>b.score-a.score).slice(0,3);
+  const per=Math.min(Math.max(avail-bondAmt,0)/(pool.length||1),.1*tot);
+  for(const r of pool){const q=Math.max(1,Math.floor(per/r.price));cards.push(icard('КУПИТЬ (идея)','t-buy',`${r.secid}: ≈ ${q} шт на ${R(q*r.price)} <span class="hint">(цена ≈ ${R(r.price)})</span>`,
+   `дивидендная доходность за последний год ${r.y.toFixed(1)}%; ${r.up?'цена выше средних за 50 и 200 дней — тренд вверх':'тренд нейтральный'}${r.r1!=null?`; за год ${P(r.r1)}`:''}; ${r.fresh?`в портфеле нет отрасли «${r.sec}», это диверсификация`:`отрасль «${r.sec}» у вас пока небольшая`}.`,
+   `дивиденды не гарантированы и могут сократить или отменить; цена может падать. Комиссия ≈ ${fee(q*r.price)}. Перед покупкой проверьте новости, отчётность и дату закрытия реестра; уточните размер лота у брокера.`))}
+  if(!pool.length)cards.push('<div class="card hint">Подходящих идей по данным сейчас нет: у бумаг либо нет заметных выплат, либо тренд вниз, либо отрасль уже занята.</div>');
+  for(const p of S.positions.filter(p=>p.kind=='share')){const r=SC.find(x=>x.secid==p.secid),pn=(unit(p)/p.avg-1)*100;
+   if(r&&r.down&&pn<-10){cards.push(icard('ПРОДАТЬ / СОКРАТИТЬ (идея)','t-sell',`${p.secid}: рассмотрите сокращение позиции`,`цена ниже средней за 200 дней (тренд вниз), результат к вашей цене покупки ${P(pn)}${r.y<3?', выплаты за год всего '+r.y.toFixed(1)+'%':''}. Освободившиеся деньги можно направить в бумаги с лучшими выплатами и трендом.`,`продажа фиксирует убыток (${R((unit(p)-p.avg)*p.qty)}), комиссия ≈ ${fee(unit(p)*p.qty)}; бумага может отскочить. Если довод покупки в силе, часто разумнее держать.`))}}}
+ return h+cards.join('')}
+const _a=V.a;V.a=()=>buyBlock()+_a();
 (function(){const c=document.getElementById('sky'),f=document.getElementById('fly');if(!c||!f)return;const x=c.getContext('2d'),y=f.getContext('2d');
 let W,H,rocks=[],comets=[],next=0,last=0;const rnd=(a,b)=>a+Math.random()*(b-a);
 function size(){const D=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;for(const[k,q]of[[c,x],[f,y]]){k.width=W*D;k.height=H*D;q.setTransform(D,0,0,D,0,0)}
