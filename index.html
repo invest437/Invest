@@ -66,15 +66,18 @@ set:(k,v)=>{try{localStorage.setItem(k,v)}catch(_){}try{tg.CloudStorage.setItem(
 const DEF={cash:0,fees:0,trades:[],base:null,positions:[],monthly:9300,growth:10,delay:12,yield:12,fee:0.3,steps:[50000,100000,200000,300000,500000]};
 let K='',M=[],busy=false,S=DEF,Q={},E={ev:[],annual:0},tab='p',status='';
 const kind=t=>/^(SU|RU000)/.test(t)||t.length>=12?'bond':'share';
-const J=async u=>{const r=await fetch('https://iss.moex.com/iss'+u);if(!r.ok)throw 0;return r.json()};
+const J=async u=>{let r;try{r=await fetch('https://iss.moex.com/iss'+u)}catch(e){throw new Error('нет связи с биржей')}if(!r.ok)throw new Error('ошибка '+r.status);return r.json()};
 const rows=b=>b.data.map(r=>Object.fromEntries(b.columns.map((c,i)=>[c,r[i]])));
-async function quote(p){const b=p.kind=='bond';
- const j=await J((b?'/engines/stock/markets/bonds/securities/':'/engines/stock/markets/shares/boards/TQBR/securities/')+p.secid+'.json?iss.meta=off&iss.only=securities,marketdata');
- const sec=rows(j.securities),md=rows(j.marketdata);let s=sec[0];
- if(b)for(const x of['TQCB','TQOB','TQIR']){const f=sec.find(r=>r.BOARDID==x);if(f){s=f;break}}
- const m=md.find(r=>r.BOARDID==s.BOARDID)||{},pr=m.LAST||m.LCURRENTPRICE||s.PREVPRICE,pv=s.PREVPRICE||pr;
+function pick(j,b){const sec=rows(j.securities),md=rows(j.marketdata);if(!sec.length)throw new Error('бумага не найдена');let s=sec[0];
+ if(b){for(const x of['TQCB','TQOB','TQIR']){const f=sec.find(r=>r.BOARDID==x);if(f){s=f;break}}}else{const f=sec.find(r=>r.BOARDID=='TQBR');if(f)s=f}
+ const m=md.find(r=>r.BOARDID==s.BOARDID)||{},pr=m.LAST||m.LCURRENTPRICE||s.PREVPRICE||s.PREVWAPRICE,pv=s.PREVPRICE||pr;if(!pr)throw new Error('нет цены');
  if(b){const f=s.FACEVALUE||1000,a=s.ACCRUEDINT||0;return{unit:pr/100*f+a,prev:pv/100*f+a,name:s.SHORTNAME}}
  return{unit:pr,prev:pv,name:s.SHORTNAME}}
+async function quote(p){const b=p.kind=='bond',q='.json?iss.meta=off&iss.only=securities,marketdata',
+ urls=b?['/engines/stock/markets/bonds/securities/'+p.secid+q]:['/engines/stock/markets/shares/boards/TQBR/securities/'+p.secid+q,'/engines/stock/markets/shares/securities/'+p.secid+q];
+ let err;for(const u of urls){try{return pick(await J(u),b)}catch(e){err=e}}
+ if(!b){try{const c=(await cand(p.secid,iso(new Date(Date.now()-10*864e5)))).filter(x=>x.close).pop();if(c)return{unit:c.close,prev:c.open||c.close,name:p.secid}}catch(e){err=e}}
+ throw err}
 const dd=s=>new Date(s+'T00:00:00');
 async function events(p,t,ya,yn){const o=[];let a=0;
  if(p.kind=='share'){const j=await J('/securities/'+p.secid+'/dividends.json?iss.meta=off');
@@ -86,10 +89,11 @@ async function events(p,t,ya,yn){const o=[];let a=0;
  return{o,a}}
 async function refresh(){status='Обновляю котировки…';draw();const t=new Date();t.setHours(0,0,0,0);
  const ya=new Date(t);ya.setFullYear(ya.getFullYear()-1);const yn=new Date(t);yn.setFullYear(yn.getFullYear()+1);
- const res=await Promise.allSettled(S.positions.map(async p=>[p,await quote(p),await events(p,t,ya,yn)]));
- Q={};E={ev:[],annual:0};let bad=0;
- res.forEach(r=>{if(r.status=='fulfilled'){Q[r.value[0].secid]=r.value[1];E.ev.push(...r.value[2].o);E.annual+=r.value[2].a}else bad++});
- E.ev.sort((a,b)=>a.d-b.d);status=bad?`⚠️ Нет данных по ${bad} бумагам (проверьте тикеры и интернет)`:'';draw()}
+ const res=await Promise.all(S.positions.map(async p=>{const[q,e]=await Promise.allSettled([quote(p),events(p,t,ya,yn)]);return{p,q,e}}));
+ Q={};E={ev:[],annual:0,by:{}};const bq=[],be=[];
+ for(const{p,q,e}of res){if(q.status=='fulfilled')Q[p.secid]=q.value;else bq.push(p.secid+' ('+((q.reason&&q.reason.message)||'ошибка')+')');
+  if(e.status=='fulfilled'){E.ev.push(...e.value.o);E.annual+=e.value.a;E.by[p.secid]=e.value.a}else be.push(p.secid)}
+ E.ev.sort((a,b)=>a.d-b.d);status=(bq.length?'⚠️ Нет цен: '+bq.join(', ')+'. ':'')+(be.length?'Нет данных о выплатах: '+be.join(', ')+'.':'');draw()}
 const unit=p=>(Q[p.secid]||{unit:p.avg}).unit;
 const kv=k=>S.positions.filter(p=>p.kind==k).reduce((a,p)=>a+unit(p)*p.qty,0);
 const calc=()=>{const v=S.positions.reduce((a,p)=>a+unit(p)*p.qty,0),c=S.positions.reduce((a,p)=>a+p.avg*p.qty,0);return{v,c,tot:v+S.cash}};
@@ -130,9 +134,11 @@ const V={
 p(){const{v,c,tot}=calc();if(!S.positions.length)return'<div class="card">Портфель пуст. Откройте «Сделки» → «Импорт портфеля».</div>';
  return`<div class="card hero"><div class="hint">Стоимость портфеля</div><div class="big">${R(tot)}</div><div class="${C(v-c)}">${P((v/c-1)*100)} к цене покупки (${R(v-c)})</div>
  <div class="hint" style="margin-top:6px">Свободно ${R(S.cash)} · комиссии всего ${R(S.fees)}</div></div>
- <h2>Бумаги</h2><div class="card">${[...S.positions].sort((a,b)=>unit(b)*b.qty-unit(a)*a.qty).map(p=>{const val=unit(p)*p.qty,w=val/tot*100,pn=(unit(p)/p.avg-1)*100;
- return`<div class="row" style="display:block"><div class="row" style="padding:0"><span><b>${p.secid}</b> <span class="hint">${p.kind=='bond'?'облигация':'акция'} · ${p.qty} шт</span></span><span>${R(val)}</span></div>
- <div class="row" style="padding:2px 0 0"><span class="hint">${w.toFixed(0)}% портфеля${Q[p.secid]?'':' · ⚠️ нет цены'}</span><span class="chip ${C(pn)}">${P(pn)}</span></div>${bar(w*2)}</div>`}).join('<div class="sep" style="margin:8px 0"></div>')}</div>`},
+ ${[['share','Акции'],['bond','Облигации']].map(([k,l])=>{const L=S.positions.filter(p=>p.kind==k).sort((a,b)=>unit(b)*b.qty-unit(a)*a.qty);if(!L.length)return'';const sum=L.reduce((a,p)=>a+unit(p)*p.qty,0);
+ return`<h2>${l} · ${R(sum)} · ${(sum/tot*100).toFixed(0)}%</h2><div class="card">${L.map(p=>{const val=unit(p)*p.qty,w=val/tot*100,pn=(unit(p)/p.avg-1)*100;
+ return`<div class="row" style="display:block"><div class="row" style="padding:0"><span><b>${p.secid}</b> <span class="hint">${p.qty} шт</span></span><span>${R(val)}</span></div>
+ <div class="row" style="padding:2px 0 0"><span class="hint">${w.toFixed(0)}% портфеля${Q[p.secid]?'':' · ⚠️ нет цены'}</span><span class="chip ${C(pn)}">${P(pn)}</span></div>${bar(w*2)}</div>`}).join('<div class="sep" style="margin:8px 0"></div>')}</div>`}).join('')}
+ <h2>Рубли · ${(S.cash/tot*100).toFixed(0)}%</h2><div class="card"><div class="row" style="padding:0"><b>Свободные рубли</b><span>${R(S.cash)}</span></div></div>`},
 i(){const lim=new Date();lim.setDate(lim.getDate()+60);const ev=E.ev.filter(e=>e.d<=lim);
  return`<div class="inc"><div class="card hero"><div class="hint">Пассивный доход за год (после НДФЛ 13%)</div><div class="big">${R(E.annual*.87)}</div><div class="hint">≈ ${R(E.annual*.87/12)} в месяц · до налога ${R(E.annual)}</div></div>
  <h2>Выплаты на 60 дней</h2><div class="card">${ev.length?ev.map(e=>`<div class="row"><span>${e.d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'})} · <b>${e.s}</b> <span class="hint">${e.k}</span></span><b class="up">${R(e.a)}</b></div>`).join(''):'<div class="hint">Ближайших объявленных выплат нет</div>'}</div>
