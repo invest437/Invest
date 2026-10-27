@@ -57,7 +57,7 @@ svg text{font-family:'Manrope',sans-serif}
 </style></head><body>
 <canvas id="sky"></canvas><canvas id="fly"></canvas>
 <div id="app" class="hint">Загрузка…</div>
-<nav><button data-t="p"><span>💼</span>Портфель</button><button data-t="i"><span>💰</span>Доход</button><button data-t="g"><span>🎯</span>Цели</button><button data-t="pl"><span>🧭</span>План</button><button data-t="n"><span>📰</span>Новости</button><button data-t="an"><span>🔬</span>Анализ</button><button data-t="s"><span>✍️</span>Сделки</button></nav>
+<nav><button data-t="p"><span>💼</span>Портфель</button><button data-t="i"><span>💰</span>Доход</button><button data-t="g"><span>🎯</span>Цели</button><button data-t="pl"><span>🧭</span>План</button><button data-t="n"><span>📰</span>Новости</button><button data-t="an"><span>🔬</span>Анализ</button><button data-t="ai"><span>🤖</span>ИИ</button><button data-t="s"><span>✍️</span>Сделки</button></nav>
 <script>
 'use strict';
 /* ============ Telegram и защита ============ */
@@ -113,9 +113,9 @@ const cls=p=>{if(p.kind=='bond')return'bond';if(p.kind=='fund'){const f=FUNDS[p.
 const CN={share:'Акции',bond:'Облигации',cash:'Рубли и ден. рынок',gold:'Золото'};
 const unit=p=>(Q[p.secid]||{unit:p.avg}).unit;
 const clean=p=>(Q[p.secid]||{clean:p.avg}).clean;
-const pnPct=p=>(clean(p)/p.avg-1)*100;
+const pnPct=p=>(unit(p)/p.avg-1)*100;
 function calc(){let v=0,c=0,cl=0,nkd=0,day=0;for(const p of S.positions){const q=Q[p.secid],u=unit(p);v+=u*p.qty;c+=p.avg*p.qty;cl+=clean(p)*p.qty;if(q){nkd+=(q.nkd||0)*p.qty;day+=(q.unit-(q.prev||q.unit))*p.qty}}
- return{v,c,nkd,day,pl:cl-c,plp:c?(cl/c-1)*100:0,tot:v+S.cash}}
+ const tot=v+S.cash,pl=v-c;return{v,c,nkd,day,pl,plp:tot-pl?pl/(tot-pl)*100:0,tot}}
 function byClass(){const o={share:0,bond:0,cash:S.cash,gold:0};for(const p of S.positions)o[cls(p)]+=unit(p)*p.qty;return o}
 const kv=k=>S.positions.filter(p=>p.kind==k).reduce((a,p)=>a+unit(p)*p.qty,0);
 const sharesCount=()=>S.positions.filter(p=>p.kind=='share').length;
@@ -180,7 +180,8 @@ function rebuild(){const b=S.base;let cash=b.cash,fees=b.fees||0;const real=[];
    x.lots=x.lots.filter(l=>l.q>0);x.qty-=q;cash+=q*t.price-t.fee;fees+=t.fee;
    real.push({d:t.d,secid:t.secid,qty:q,gain:q*t.price-t.fee-cost,ldv:q?ldv/q:0})}}
  for(const x of pos)x.avg=x.qty?x.lots.reduce((a,l)=>a+l.q*l.c,0)/x.qty:0;
- S.positions=pos.filter(p=>p.qty>0);S.cash=cash;S.fees=fees;S.real=real}
+ S.positions=pos.filter(p=>p.qty>0);S.cash=cash+(S.cashAdj||0);S.fees=fees;S.real=real}
+function setCash(){const v=parseFloat($('cashB').value.replace(',','.'));if(isNaN(v))return;S.cashAdj=(S.cashAdj||0)+(v-S.cash);S.cash=v;save();draw()}
 function ndfl(x){if(x<=0)return 0;const B=[[2.4e6,.13],[5e6,.15],[2e7,.18],[5e7,.2],[Infinity,.22]];let t=0,lo=0;for(const[hi,r]of B){if(x>lo)t+=(Math.min(x,hi)-lo)*r;lo=hi}return t}
 const realTax=()=>{const y={};for(const r of S.real){const k=r.d.slice(0,4);y[k]=(y[k]||0)+r.gain*(1-r.ldv)}return Object.entries(y).map(([k,g])=>({y:k,g,tax:ndfl(g)}))};
 function save(){S._ts=Date.now();store.set('s',JSON.stringify(S))}
@@ -234,20 +235,21 @@ const tip=(c,t,x)=>`<div class="card tip" style="--c:${c}"><b>${t}</b>${x}</div>
 const UNIV=['SBER','GAZP','LKOH','ROSN','YDEX','OZON','MTSS','X5','T','VTBR','MGNT','NVTK','GMKN','PLZL','CHMF','NLMK','MAGN','TATN','SNGS','MOEX','AFLT','PHOR','ALRS','RUAL','HYDR','IRAO','RTKM','CBOM','BSPB','AFKS','SMLT','LSRG','UPRO','TRNFP','FEES','MSNG'];
 const SECT={SBER:'Банки',VTBR:'Банки',CBOM:'Банки',BSPB:'Банки',T:'Финансы',MOEX:'Финансы',AFKS:'Финансы',GAZP:'Нефть и газ',LKOH:'Нефть и газ',ROSN:'Нефть и газ',TATN:'Нефть и газ',SNGS:'Нефть и газ',NVTK:'Нефть и газ',TRNFP:'Нефть и газ',GMKN:'Металлы',PLZL:'Металлы',CHMF:'Металлы',NLMK:'Металлы',MAGN:'Металлы',RUAL:'Металлы',ALRS:'Металлы',MTSS:'Телеком',RTKM:'Телеком',YDEX:'IT',OZON:'Ритейл и IT',X5:'Ритейл',MGNT:'Ритейл',AFLT:'Транспорт',PHOR:'Химия',HYDR:'Энергетика',IRAO:'Энергетика',UPRO:'Энергетика',FEES:'Энергетика',MSNG:'Энергетика',SMLT:'Недвижимость',LSRG:'Недвижимость'};
 const FPREF={eq:['TMOS','SBMX','EQMX','AKME'],gold:['TGLD','AKGD','GOLD','SBGD'],mm:['LQDT','SBMM','TMON','AKMM'],bond:['SBGB','SBRB','TBRU','AKFB']};
-let UNI=lj('u',null);if(UNI&&UNI.v!=3)UNI=null;let unb=false,unp={d:0,n:0},unErr=false;
+let UNI=lj('u',null);if(UNI&&UNI.v!=4)UNI=null;let unb=false,unp={d:0,n:0},unErr=false;
 const pool=async(tasks,k,cb)=>{let i=0,fail=0;const w=async()=>{while(i<tasks.length){const t=tasks[i++];try{await t()}catch(_){fail++}cb&&cb()}};await Promise.all(Array.from({length:k},w));return fail};
+const r1y=(c,now)=>{const d=iso(new Date(Date.now()-365*864e5)),k=c.find(x=>x.close&&String(x.begin).slice(0,10)>=d);return k&&String(k.begin).slice(0,10)<=iso(new Date(Date.now()-350*864e5))?(now/k.close-1)*100:null};
 async function scr1(secid){const q=await quote({secid,kind:'share'}),from=iso(new Date(Date.now()-420*864e5));
  const[dv,cs]=await Promise.allSettled([divRows(secid),candSec(secid,from)]);let y=null,up=false,down=false,r1=null,nd=null,lastReg=null,avgVal=null,dd52=null;
  const t0=new Date();t0.setHours(0,0,0,0);
  if(dv.status=='fulfilled'&&dv.value){const rs=dv.value,ya=new Date();ya.setFullYear(ya.getFullYear()-1);y=rs.filter(r=>dd(r.d)>ya&&dd(r.d)<=new Date()).reduce((a,r)=>a+r.v,0)/q.unit*100;
   nd=rs.filter(r=>dd(r.d)>=t0).sort((a,b)=>a.d<b.d?-1:1)[0]||null;const pa=rs.filter(r=>dd(r.d)<t0).sort((a,b)=>a.d<b.d?1:-1)[0];lastReg=pa?pa.d:null}
  if(cs.status=='fulfilled'){const c=cs.value.filter(x=>x.close),cl=c.map(x=>x.close),sma=n=>cl.length>=n?cl.slice(-n).reduce((a,b)=>a+b,0)/n:null,s50=sma(50),s200=sma(200);
-  up=!!(s200&&q.unit>s200&&s50>s200);down=!!(s200&&q.unit<s200);if(cl.length>200)r1=(q.unit/cl[Math.max(0,cl.length-250)]-1)*100;
+  up=!!(s200&&q.unit>s200&&s50>s200);down=!!(s200&&q.unit<s200);r1=r1y(c,q.unit);
   const vv=c.slice(-20).map(x=>x.value).filter(Boolean);if(vv.length)avgVal=vv.reduce((a,b)=>a+b,0)/vv.length;
   const hi=Math.max(...cl.slice(-250));if(cl.length>20&&hi)dd52=(q.unit/hi-1)*100}
  return{secid,price:q.unit,lot:q.lot,name:q.name,y,up,down,r1,nd,lastReg,avgVal,dd52}}
 async function scrFund(secid){const q=await quote({secid,kind:'fund'});let r1=null,up=false,down=false,avgVal=null,dd52=null;
- try{const c=(await candSec(secid,iso(new Date(Date.now()-420*864e5)),'TQTF')).filter(x=>x.close),cl=c.map(x=>x.close);if(cl.length>100)r1=(q.unit/cl[Math.max(0,cl.length-250)]-1)*100;
+ try{const c=(await candSec(secid,iso(new Date(Date.now()-420*864e5)),'TQTF')).filter(x=>x.close),cl=c.map(x=>x.close);r1=r1y(c,q.unit);
   const sma=n=>cl.length>=n?cl.slice(-n).reduce((a,b)=>a+b,0)/n:null,s200=sma(200);down=!!(s200&&q.unit<s200);up=!!(s200&&q.unit>s200);
   const vv=c.slice(-20).map(x=>x.value).filter(Boolean);if(vv.length)avgVal=vv.reduce((a,b)=>a+b,0)/vv.length;const hi=Math.max(...cl.slice(-250));if(cl.length>20&&hi)dd52=(q.unit/hi-1)*100}catch(_){}
  return{secid,price:q.unit,lot:q.lot,name:q.name,cls:FUNDS[secid],r1,up,down,avgVal,dd52}}
@@ -261,7 +263,7 @@ async function loadBonds(){const out=[],qs='.json?iss.meta=off&iss.only=securiti
 async function runUniverse(){if(unb)return;unb=true;unErr=false;const SC=[],FD=[];let BD=[];unp={d:0,n:0};
  const tasks=[...UNIV.map(s=>()=>scr1(s).then(r=>SC.push(r))),...Object.keys(FUNDS).map(s=>()=>scrFund(s).then(r=>FD.push(r))),()=>loadBonds().then(r=>{BD=r})];
  unp.n=tasks.length;draw();await pool(tasks,4,()=>{unp.d++;if(unp.d%4==0)soft()});
- if(SC.length+FD.length+BD.length){UNI={v:3,ts:Date.now(),SC,FD,BD};ls('u',JSON.stringify(UNI))}else unErr=true;unb=false;soft()}
+ if(SC.length+FD.length+BD.length){UNI={v:4,ts:Date.now(),SC,FD,BD};ls('u',JSON.stringify(UNI))}else unErr=true;unb=false;soft()}
 function ensureUni(){if(unb)return;if(UNI&&Date.now()-UNI.ts<12*36e5)return;runUniverse()}
 
 /* ============ идеи: распределение денег по классам активов ============ */
@@ -388,8 +390,7 @@ function buildIdeas(){const pl=plan(),tot=pl.tot,L=[],fee=v=>R(v*S.fee/100),U=UN
  /* 1. концентрация и убытки с учётом новостей */
  for(const p of S.positions){const v=unit(p)*p.qty,w=v/tot*100,pn=pnPct(p),pr=unit(p),lot=(Q[p.secid]||{}).lot||1,h=held(p);
   if(w>25&&p.kind!='fund'){const q=Math.min(p.qty,Math.ceil((v-.2*tot)/pr/lot)*lot);
-   card('sell','НЕ ДОКУПАТЬ','t-hold',`${p.secid}: пока не добавлять`,`на бумагу приходится ${W(w)} портфеля, а разумный предел 15–20%. Плохая новость по одному эмитенту ударит сразу по всему портфелю. Новые взносы лучше направить в другие бумаги. Новости и ожидания: ${h.txt}`,'',1);
-   card('sell','ПРОДАТЬ (по желанию)','t-sell',`${p.secid}: около ${N(q)} шт ≈ ${R(q*pr)}`,`чтобы снизить долю примерно до 20% и освободить деньги для диверсификации.${h.nw.neg>h.nw.pos?' Негатив в новостях усиливает довод в пользу сокращения.':''}`,`${pn>0?`продажа в плюсе (${P(pn)}) приведёт к налогу НДФЛ с прибыли и комиссии около ${fee(q*pr)}`:`продажа зафиксирует убыток (${P(pn)}), комиссия около ${fee(q*pr)}`}. Можно обойтись и без продажи, просто докупая другие бумаги.`,2)}
+   card('sell','ПРОДАТЬ (по желанию)','t-sell',`${p.secid}: около ${N(q)} шт ≈ ${R(q*pr)}`,`на бумагу приходится ${W(w)} портфеля при разумном пределе 15–20%: плохая новость по одному эмитенту ударит сразу по всему портфелю. Продажа освободит деньги для диверсификации. Новости: ${h.txt}${h.nw.neg>h.nw.pos?' Негатив в новостях усиливает довод в пользу сокращения.':''}`,`${pn>0?`продажа в плюсе (${P(pn)}) приведёт к налогу НДФЛ с прибыли и комиссии около ${fee(q*pr)}`:`продажа зафиксирует убыток (${P(pn)}), комиссия около ${fee(q*pr)}`}. Можно обойтись и без продажи, просто докупая другие бумаги.`,2)}
   else if(pn<-15)card('sell','ПЕРЕСМОТРЕТЬ','t-hold',`${p.secid}: ${P(pn)} к цене покупки`,`решите, сохранился ли довод, ради которого вы покупали. Что говорят новости и ожидания: ${h.txt} ${h.nw.neg>h.nw.pos?'Негатив в новостях усиливает сомнения.':'Резких негативных сигналов в новостях нет, это довод держать.'}`,`продажа фиксирует убыток; если довод в силе, а цена просто упала, часто разумнее держать или усреднять небольшой суммой.`,2)}
  /* 2. облигации */
  if(A.bond>tot*.01){const o=U.BD.filter(b=>!own.has(b.secid)&&b.yrs>=1&&b.yrs<=7&&b.liq>=1e6&&!b.offer&&b.price>0),ofz=o.filter(b=>!b.corp&&/^SU/.test(b.secid)&&b.dur>=1.5&&b.dur<=6),
@@ -559,9 +560,9 @@ function taxCard(){const now=new Date();let tx=0,gain=0,free=0;
  ${rt.length?`<div class="card"><b>Реализованный результат (по журналу)</b>${rt.map(r=>`<div class="row"><span>${r.y} год<div class="hint">налог ${R(r.tax)}</div></span><b class="${C(r.g)}">${SR(r.g)}</b></div>`).join('')}</div>`:''}`}
 V.p=()=>{if(!S.positions.length)return emptyCard;const t=calc(),tot=t.tot,cs=byClass();
  const grp=[['share','Акции'],['fund','Фонды'],['bond','Облигации']].map(([k,l])=>{const Ls=S.positions.filter(p=>p.kind==k).sort((a,b)=>unit(b)*b.qty-unit(a)*a.qty);if(!Ls.length)return'';const sum=Ls.reduce((a,p)=>a+unit(p)*p.qty,0);
-  return`<h2>${l} · ${R(sum)} · ${W(sum/tot*100)}</h2><div class="card">${Ls.map(p=>{const val=unit(p)*p.qty,w=val/tot*100,pn=pnPct(p),q=Q[p.secid];
+  return`<h2>${l} · ${R(sum)} · ${W(sum/tot*100)}</h2><div class="card">${Ls.map(p=>{const val=unit(p)*p.qty,w=val/tot*100,pn=pnPct(p),q=Q[p.secid],pr_=val-p.avg*p.qty;
    return`<div style="display:block"><div class="row" style="padding:0"><span><b>${p.secid}</b> <span class="hint">${N(p.qty)} шт</span></span><span>${R(val)}</span></div>
-   <div class="row" style="padding:2px 0 0"><span class="hint">${W(w)} портфеля · ср. ${nf2.format(p.avg)} → ${q?nf2.format(q.clean):'нет цены'}</span><span class="chip ${C(pn)}">${P(pn)}</span></div>${bar(w*2)}</div>`}).join('<div class="sep" style="margin:10px 0"></div>')}</div>`}).join('');
+   <div class="row" style="padding:2px 0 0"><span class="hint">${W(w)} портфеля · ср. ${nf2.format(p.avg)} → ${q?nf2.format(q.unit):'нет цены'}</span><span style="text-align:right;white-space:nowrap"><span class="chip ${C(pn)}">${P(pn)}</span><div class="${C(pn)}" style="font-size:12px;margin-top:2px">${SR(pr_)}</div></span></div>${bar(w*2)}</div>`}).join('<div class="sep" style="margin:10px 0"></div>')}</div>`}).join('');
  const ps=[...S.positions].sort((a,b)=>unit(b)*b.qty-unit(a)*a.qty),top=ps.slice(0,5).map((p,i)=>({l:p.secid,v:unit(p)*p.qty,c:PAL[i]})),rest=ps.slice(5).reduce((a,p)=>a+unit(p)*p.qty,0),
   parts=[...top,...(rest>0?[{l:'Прочее',v:rest,c:PAL[5]}]:[]),{l:'Рубли',v:Math.max(0,S.cash),c:'#3a4254'}];
  /* динамика */
@@ -571,11 +572,13 @@ V.p=()=>{if(!S.positions.length)return emptyCard;const t=calc(),tot=t.tot,cs=byC
   const fl=[[dd(h[0][0]),-h[0][1]],...S.trades.filter(x=>x.act=='dep'&&x.d>h[0][0]).map(x=>[dd(x.d),-x.amt]),[new Date(),tot]],days=(new Date()-dd(h[0][0]))/864e5,xr=days>=30?xirr(fl):null;
   dyn=chart('c1',ser,cols,dates.map(dmy),v=>nf2.format(v))+`<div class="hint">${names.map((n,i)=>`<span class="dot" style="background:${cols[i]}"></span>${n}: ${P(ser[i][ser[i].length-1]-100)}`).join(' · ')}</div>
   <div class="hint" style="margin-top:6px">Доходность без учёта пополнений (значения 100 → сейчас), с ${dmy(h[0][0])}. ${xr!=null?`С учётом сроков пополнений (XIRR): ${P(xr*100)} годовых.`:'Годовая доходность (XIRR) появится через 30 дней истории.'}</div>`}
- return`<div class="card hero"><div class="hint">Стоимость портфеля</div><div class="big">${R(tot)}</div><div class="${C(t.pl)}">${SR(t.pl)} · ${P(t.plp)} к цене покупки</div>
+ return`<div class="card hero"><div class="hint">Стоимость портфеля</div><div class="big">${R(tot)}</div><div class="${C(t.pl)}">${SR(t.pl)} · ${P(t.plp)} за всё время</div>
  <div class="hint" style="margin-top:6px">За день <span class="${C(t.day)}">${SR(t.day)}</span> · свободно ${R(S.cash)} · комиссии всего ${R(S.fees)}${t.nkd>0?` · НКД в цене ${R(t.nkd)}`:''}</div></div>
- ${grp}<h2>Рубли · ${W(S.cash/tot*100)}</h2><div class="card"><div class="row" style="padding:0"><b>Свободные рубли</b><span>${R(S.cash)}</span></div></div>
+ ${grp}<h2>Рубли · ${W(S.cash/tot*100)}</h2><div class="card"><div class="row" style="padding:0"><b>Свободные рубли</b><span>${R(S.cash)}</span></div>
+ <details style="margin-top:8px"><summary class="hint" style="cursor:pointer">Не совпадает с брокером?</summary><div class="hint" style="margin:6px 0">Введите остаток из приложения брокера — разница (например, мелкие комиссии) будет учтена.</div><input id="cashB" type="number" inputmode="decimal" placeholder="${nf2.format(S.cash)}"><button class="go sm" onclick="setCash()">Сверить</button></details></div>
  <h2>Структура</h2><div class="card" style="display:flex;gap:14px;align-items:center">${donut(parts)}<div>${parts.map(p=>`<div><span class="dot" style="background:${p.c}"></span>${p.l} ${W(p.v/tot*100)}</div>`).join('')}</div></div>
- <h2>Динамика стоимости</h2><div class="card">${dyn}</div>${taxCard()}<h2>Отчёт и ИИ</h2><button class="go" onclick="copyRep()">Скопировать отчёт для консультанта</button><div style="height:12px"></div>${aiBlock()}`};
+ <h2>Динамика стоимости</h2><div class="card">${dyn}</div>${taxCard()}<h2>Стратегия</h2>${stratView()}`};
+V.ai=()=>aiBlock();
 
 let payK=null;
 const sh=v=>v>=1000?nf1.format(v/1000)+'к':String(Math.round(v));
@@ -623,7 +626,7 @@ function ideasView(){const all=buildIdeas(),L=all.filter(i=>idf=='all'||i.cat==i
  return`${uniStatus()}<div class="chips">${chips}</div><div class="hint" style="margin:8px 4px">Все проверки перед покупкой приложение выполняет само и показывает итог в каждой идее: ликвидность, лот и сумма, доли в портфеле, даты дивидендов, новости, тренд и спред облигаций. Кредитные рейтинги бесплатно получить нельзя, для облигаций риск оценивается по рыночному спреду к ОФЗ. Это материал для изучения, а не индивидуальная инвестиционная рекомендация.</div>
  ${rateCard()}
  ${L.length?L.map(ideaHtml).join(''):`<div class="card tip" style="--c:var(--ac)"><b>${idf=='all'?'Структура в порядке':'По этому разделу идей нет'}</b>${idf=='all'?'Явных перекосов сейчас не видно. Продолжайте регулярные взносы.':'Попробуйте раздел «Все» или обновите данные биржи.'}</div>`}
- <h2>Заметки</h2>${obs()}<div class="hint">Это общая аналитика, а не индивидуальная инвестиционная рекомендация. Решения принимаете вы.</div>`}
+ <div class="hint" style="margin-top:10px">Это общая аналитика, а не индивидуальная инвестиционная рекомендация. Решения принимаете вы.</div>`}
 function rebView(){const pl=plan(),tot=pl.tot,rows_=['share','bond','cash','gold'].map(c=>{const now=pl.cur[c]/tot*100,tg=pl.tgt[c]/pl.T*100,d=pl.tgt[c]-pl.cur[c];
   return`<div class="row" style="display:block"><div class="row" style="padding:0"><b>${CN[c]}</b><span>${W(now)} → ${W(tg)}</span></div>${bar(pl.tgt[c]?pl.cur[c]/pl.tgt[c]*100:0)}<div class="hint" style="margin-top:4px">${Math.abs(d)<tot*.03?'В норме.':d>0?'Докупить ≈ '+R(d):'Избыток ≈ '+R(-d)} · сейчас ${R(pl.cur[c])}</div></div>`}).join('<div class="sep" style="margin:8px 0"></div>');
  return`<h2>Целевая структура</h2><div class="card">${rows_}</div>
@@ -638,8 +641,8 @@ function stratView(){const{tot}=calc(),cur=byClass(),tw=S.tw,
  <h2>Каждый месяц</h2><div class="card"><ul><li>Внести взнос ${R(S.monthly)}.</li><li>Реинвестировать полученные дивиденды и купоны.</li><li>Одной покупкой докупить класс, который отстаёт от цели (так меньше комиссий).</li><li>Записать сделки во вкладке «Сделки».</li><li>Раз в квартал сверить структуру; ребалансировать, если отклонение больше 10 п. п.</li></ul></div>
  <h2>Правила риска</h2><div class="card"><ul><li>Одна бумага — не больше 15–20% портфеля.</li><li>Короткие сделки — не больше 5–10% капитала, с заранее заданным выходом и убытком.</li><li>Без плеча и фьючерсов на таком капитале.</li><li>Не продавать в панике; не вкладывать деньги, нужные в ближайшие 1–2 года.</li><li>Налоги: НДФЛ с дивидендов, купонов и прибыли; льгота долгосрочного владения (ЛДВ) для акций дольше 3 лет. Уточняйте у брокера.</li></ul></div>
  <div class="hint">Это общая стратегия, а не индивидуальная инвестиционная рекомендация. Решения принимаете вы.</div>`}
-V.pl=()=>{if(!S.positions.length)return emptyCard;const chips=[['i','Идеи'],['r','Ребаланс'],['s','Стратегия']].map(([k,l])=>`<button class="q${plT==k?' on':''}" onclick="plT='${k}';draw()">${l}</button>`).join('');
- return`<div class="chips" style="margin-bottom:10px">${chips}</div>`+(plT=='i'?ideasView():plT=='r'?rebView():stratView())};
+V.pl=()=>{if(!S.positions.length)return emptyCard;const chips=[['i','Идеи'],['r','Ребаланс']].map(([k,l])=>`<button class="q${plT==k?' on':''}" onclick="plT='${k}';draw()">${l}</button>`).join('');
+ return`<div class="chips" style="margin-bottom:10px">${chips}</div>`+(plT=='i'?ideasView():rebView())};
 V.n=()=>{const{all,mine}=newsData(),pos=S.positions;
  const chips=[['mine','Мои бумаги'],['all','Все'],...pos.map(p=>[p.secid,p.secid])].map(([k,l])=>`<button class="q${nwF==k?' on':''}" onclick="nwF='${k}';draw()">${l}</button>`).join('');
  const L=(nwF=='all'?all:nwF=='mine'?mine:mine.filter(i=>i.ps.includes(nwF))).sort((a,b)=>b.d-a.d);NWL=L.slice(0,40);
