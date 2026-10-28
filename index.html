@@ -105,7 +105,7 @@ const store={
 
 /* ============ состояние ============ */
 const DEF={cash:0,fees:0,trades:[],base:null,positions:[],real:[],hist:[],monthly:9300,growth:10,delay:12,yield:12,fee:0.3,infl:8,
- steps:[50000,100000,200000,300000,500000],tw:{share:55,bond:35,cash:5,gold:5},theme:'dark',proxy:'',divm:{}};
+ steps:[50000,100000,200000,300000,500000],skip:{},tw:{share:55,bond:35,cash:5,gold:5},theme:'dark',proxy:'',divm:{}};
 let S=clone(DEF),K='',M=[],busy=false,Q={},E={ev:[],annual:0,by:{}},DS={q:[],e:[],ts:0},tab='p',rbusy=false,dirty=false;
 const FUNDS={LQDT:'mm',SBMM:'mm',TMON:'mm',AKMM:'mm',TMOS:'eq',SBMX:'eq',EQMX:'eq',AKME:'eq',TGLD:'gold',AKGD:'gold',GOLD:'gold',SBGD:'gold',SBGB:'bond',SBRB:'bond',TBRU:'bond',AKFB:'bond'};
 const kind=t=>FUNDS[t]?'fund':(/^(SU|RU000)/.test(t)||t.length>=12)?'bond':'share';
@@ -164,7 +164,7 @@ function snap(){if(!S.positions.length||!S.positions.every(p=>Q[p.secid]))return
  const l=S.hist[S.hist.length-1];if(l&&l[0]==d){l[1]=tot;l[2]=dep}else S.hist.push([d,tot,dep]);S.hist=S.hist.slice(-1000);save()}
 
 /* ============ сделки, лоты (FIFO), реализованный результат ============ */
-function migrate(){S.trades=S.trades||[];S.hist=S.hist||[];S.real=S.real||[];S.tw={...DEF.tw,...(S.tw||{})};S.divm=S.divm||{};
+function migrate(){S.trades=S.trades||[];S.hist=S.hist||[];S.real=S.real||[];S.tw={...DEF.tw,...(S.tw||{})};S.divm=S.divm||{};S.skip=S.skip||{};
  if(!S.base)S.base={cash:S.cash,fees:S.fees||0,positions:clone(S.positions)};
  for(const p of S.base.positions)p.kind=kind(p.secid)}
 function rebuild(){const b=S.base;let cash=b.cash,fees=b.fees||0;const real=[];
@@ -233,28 +233,35 @@ const bar=p=>`<div class="bar"><i style="width:${Math.max(2,Math.min(100,p))}%">
 const tip=(c,t,x)=>`<div class="card tip" style="--c:${c}"><b>${t}</b>${x}</div>`;
 
 /* ============ универсум для идей: акции, облигации, фонды ============ */
+/* ---------- статистика по свечам: волатильность, просадка, импульс, перегретость, корреляции ---------- */
+const mean_=a=>a.reduce((s,x)=>s+x,0)/a.length,sd_=a=>{const m=mean_(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)*(x-m),0)/Math.max(1,a.length-1))};
+const rets_=a=>a.slice(1).map((x,i)=>x/a[i]-1);
+function corr_(a,b){const n=Math.min(a.length,b.length);if(n<60)return null;const x=a.slice(-n),y=b.slice(-n),mx=mean_(x),my=mean_(y);let sxy=0,sx=0,sy=0;for(let i=0;i<n;i++){const p=x[i]-mx,q=y[i]-my;sxy+=p*q;sx+=p*p;sy+=q*q}return sx&&sy?sxy/Math.sqrt(sx*sy):null}
+function stats_(cl){const n=cl.length;if(n<120)return{};const r=rets_(cl);let pk=cl[0],mdd=0;for(const x of cl){if(x>pk)pk=x;const d=x/pk-1;if(d<mdd)mdd=d}
+ const last=cl[n-1],s200=n>=200?mean_(cl.slice(-200)):null;
+ return{vol:sd_(r)*Math.sqrt(250)*100,mdd:mdd*100,mom:n>=242?(cl[n-22]/cl[n-242]-1)*100:null,r3:n>64?(last/cl[n-64]-1)*100:null,s200,ext:s200?(last/s200-1)*100:null}}
 const UNIV=['SBER','GAZP','LKOH','ROSN','YDEX','OZON','MTSS','X5','T','VTBR','MGNT','NVTK','GMKN','PLZL','CHMF','NLMK','MAGN','TATN','SNGS','MOEX','AFLT','PHOR','ALRS','RUAL','HYDR','IRAO','RTKM','CBOM','BSPB','AFKS','SMLT','LSRG','UPRO','TRNFP','FEES','MSNG'];
 const SECT={SBER:'Банки',VTBR:'Банки',CBOM:'Банки',BSPB:'Банки',T:'Финансы',MOEX:'Финансы',AFKS:'Финансы',GAZP:'Нефть и газ',LKOH:'Нефть и газ',ROSN:'Нефть и газ',TATN:'Нефть и газ',SNGS:'Нефть и газ',NVTK:'Нефть и газ',TRNFP:'Нефть и газ',GMKN:'Металлы',PLZL:'Металлы',CHMF:'Металлы',NLMK:'Металлы',MAGN:'Металлы',RUAL:'Металлы',ALRS:'Металлы',MTSS:'Телеком',RTKM:'Телеком',YDEX:'IT',OZON:'Ритейл и IT',X5:'Ритейл',MGNT:'Ритейл',AFLT:'Транспорт',PHOR:'Химия',HYDR:'Энергетика',IRAO:'Энергетика',UPRO:'Энергетика',FEES:'Энергетика',MSNG:'Энергетика',SMLT:'Недвижимость',LSRG:'Недвижимость'};
 const FPREF={eq:['TMOS','SBMX','EQMX','AKME'],gold:['TGLD','AKGD','GOLD','SBGD'],mm:['LQDT','SBMM','TMON','AKMM'],bond:['SBGB','SBRB','TBRU','AKFB']};
-let UNI=lj('u',null);if(UNI&&UNI.v!=4)UNI=null;let unb=false,unp={d:0,n:0},unErr=false;
+let UNI=lj('u',null);if(UNI&&UNI.v!=5)UNI=null;let unb=false,unp={d:0,n:0},unErr=false;
 const pool=async(tasks,k,cb)=>{let i=0,fail=0;const w=async()=>{while(i<tasks.length){const t=tasks[i++];try{await t()}catch(_){fail++}cb&&cb()}};await Promise.all(Array.from({length:k},w));return fail};
 const r1y=(c,now)=>{const d=iso(new Date(Date.now()-365*864e5)),k=c.find(x=>x.close&&String(x.begin).slice(0,10)>=d);return k&&String(k.begin).slice(0,10)<=iso(new Date(Date.now()-350*864e5))?(now/k.close-1)*100:null};
 async function scr1(secid){const q=await quote({secid,kind:'share'}),from=iso(new Date(Date.now()-420*864e5));
- const[dv,cs]=await Promise.allSettled([divRows(secid),candSec(secid,from)]);let y=null,up=false,down=false,r1=null,nd=null,lastReg=null,avgVal=null,dd52=null;
+ const[dv,cs]=await Promise.allSettled([divRows(secid),candSec(secid,from)]);let y=null,up=false,down=false,r1=null,nd=null,lastReg=null,avgVal=null,dd52=null,ST={},CL=[];
  const t0=new Date();t0.setHours(0,0,0,0);
  if(!(dv.status=='fulfilled'&&dv.value)&&S.divm[secid])y=S.divm[secid]/q.unit*100;
  if(dv.status=='fulfilled'&&dv.value){const rs=dv.value,ya=new Date();ya.setFullYear(ya.getFullYear()-1);y=rs.filter(r=>dd(r.d)>ya&&dd(r.d)<=new Date()).reduce((a,r)=>a+r.v,0)/q.unit*100;
   nd=rs.filter(r=>dd(r.d)>=t0).sort((a,b)=>a.d<b.d?-1:1)[0]||null;const pa=rs.filter(r=>dd(r.d)<t0).sort((a,b)=>a.d<b.d?1:-1)[0];lastReg=pa?pa.d:null}
  if(cs.status=='fulfilled'){const c=cs.value.filter(x=>x.close),cl=c.map(x=>x.close),sma=n=>cl.length>=n?cl.slice(-n).reduce((a,b)=>a+b,0)/n:null,s50=sma(50),s200=sma(200);
-  up=!!(s200&&q.unit>s200&&s50>s200);down=!!(s200&&q.unit<s200);r1=r1y(c,q.unit);
+  up=!!(s200&&q.unit>s200&&s50>s200);down=!!(s200&&q.unit<s200);r1=r1y(c,q.unit);CL=cl.slice(-252).map(x=>+x.toFixed(4));ST=stats_(CL);
   const vv=c.slice(-20).map(x=>x.value).filter(Boolean);if(vv.length)avgVal=vv.reduce((a,b)=>a+b,0)/vv.length;
   const hi=Math.max(...cl.slice(-250));if(cl.length>20&&hi)dd52=(q.unit/hi-1)*100}
- return{secid,price:q.unit,lot:q.lot,name:q.name,y,up,down,r1,nd,lastReg,avgVal,dd52}}
-async function scrFund(secid){const q=await quote({secid,kind:'fund'});let r1=null,up=false,down=false,avgVal=null,dd52=null;
+ return{secid,price:q.unit,lot:q.lot,name:q.name,y,up,down,r1,nd,lastReg,avgVal,dd52,...ST,cl:CL}}
+async function scrFund(secid){const q=await quote({secid,kind:'fund'});let r1=null,up=false,down=false,avgVal=null,dd52=null,ST={},CL=[];
  try{const c=(await candSec(secid,iso(new Date(Date.now()-420*864e5)),'TQTF')).filter(x=>x.close),cl=c.map(x=>x.close);r1=r1y(c,q.unit);
-  const sma=n=>cl.length>=n?cl.slice(-n).reduce((a,b)=>a+b,0)/n:null,s200=sma(200);down=!!(s200&&q.unit<s200);up=!!(s200&&q.unit>s200);
+  const sma=n=>cl.length>=n?cl.slice(-n).reduce((a,b)=>a+b,0)/n:null,s200=sma(200);down=!!(s200&&q.unit<s200);up=!!(s200&&q.unit>s200);CL=cl.slice(-252).map(x=>+x.toFixed(4));ST=stats_(CL);
   const vv=c.slice(-20).map(x=>x.value).filter(Boolean);if(vv.length)avgVal=vv.reduce((a,b)=>a+b,0)/vv.length;const hi=Math.max(...cl.slice(-250));if(cl.length>20&&hi)dd52=(q.unit/hi-1)*100}catch(_){}
- return{secid,price:q.unit,lot:q.lot,name:q.name,cls:FUNDS[secid],r1,up,down,avgVal,dd52}}
+ return{secid,price:q.unit,lot:q.lot,name:q.name,cls:FUNDS[secid],r1,up,down,avgVal,dd52,...ST,cl:CL}}
 async function loadBonds(){const out=[],qs='.json?iss.meta=off&iss.only=securities,marketdata,marketdata_yields';
  for(const b of['TQOB','TQCB']){let j;try{j=await J('/engines/stock/markets/bonds/boards/'+b+'/securities'+qs)}catch(_){continue}
   const md=new Map(rows(blk(j,'marketdata')).map(r=>[r.SECID,r])),my=new Map(rows(blk(j,'marketdata_yields')).map(r=>[r.SECID,r]));
@@ -262,10 +269,10 @@ async function loadBonds(){const out=[],qs='.json?iss.meta=off&iss.only=securiti
    const fv=s.FACEVALUE||1000,yrs=(new Date(s.MATDATE)-Date.now())/31557600000;
    out.push({secid:s.SECID,name:s.SHORTNAME,corp:b=='TQCB',yld:+yl,dur:(d.DURATION||y.DURATION||0)/365,yrs,mat:s.MATDATE,cpn:s.COUPONPERCENT,price:pr/100*fv+(s.ACCRUEDINT||0),clean:pr/100*fv,nkd:s.ACCRUEDINT||0,face:fv,liq:d.VALTODAY||y.VALTODAY||0,offer:!!s.OFFERDATE,lot:1})}}
  return out}
-async function runUniverse(){if(unb)return;unb=true;unErr=false;const SC=[],FD=[];let BD=[];unp={d:0,n:0};
- const tasks=[...UNIV.map(s=>()=>scr1(s).then(r=>SC.push(r))),...Object.keys(FUNDS).map(s=>()=>scrFund(s).then(r=>FD.push(r))),()=>loadBonds().then(r=>{BD=r})];
+async function runUniverse(){if(unb)return;unb=true;unErr=false;const SC=[],FD=[];let BD=[],IX=null;unp={d:0,n:0};
+ const tasks=[...UNIV.map(s=>()=>scr1(s).then(r=>SC.push(r))),...Object.keys(FUNDS).map(s=>()=>scrFund(s).then(r=>FD.push(r))),()=>loadBonds().then(r=>{BD=r}),()=>candles('/engines/stock/markets/index/boards/SNDX/securities/IMOEX',iso(new Date(Date.now()-420*864e5))).then(c=>{const cc=c.filter(x=>x.close),cl=cc.map(x=>x.close).slice(-252);if(cl.length>100){const st=stats_(cl);IX={cl:cl.map(x=>+x.toFixed(2)),r1:r1y(cc,cl[cl.length-1]),mom:st.mom}}})];
  unp.n=tasks.length;draw();await pool(tasks,4,()=>{unp.d++;if(unp.d%4==0)soft()});
- if(SC.length+FD.length+BD.length){UNI={v:4,ts:Date.now(),SC,FD,BD};ls('u',JSON.stringify(UNI))}else unErr=true;unb=false;soft()}
+ if(SC.length+FD.length+BD.length){UNI={v:5,ts:Date.now(),SC,FD,BD,IDX:IX};ls('u',JSON.stringify(UNI))}else unErr=true;unb=false;soft()}
 function ensureUni(){if(unb)return;if(UNI&&Date.now()-UNI.ts<12*36e5)return;runUniverse()}
 
 /* ============ идеи: распределение денег по классам активов ============ */
@@ -279,7 +286,7 @@ const buyTxt=(price,lot,amt)=>{const q=lotQ(price,lot,amt);return q>0?`≈ ${N(q
 /* ---------- аналитика для идей: новости, ожидания по ставке, оценки, автопроверки ---------- */
 const NC=lj('nc',{}),NCQ=new Set(),BDC=lj('bdc',{});let LASTC=[],LASTB=[];
 const lbl=v=>v>=7?'сильно':v>=4.5?'средне':'слабо';
-const FL={div:'Дивиденды',trend:'Тренд',news:'Новости и ожидания',mix:'Диверсификация',risk:'Риск',yield:'Доходность',rate:'Срок и ставка',safety:'Надёжность',liq:'Ликвидность'};
+const FL={div:'Дивиденды',trend:'Тренд',mom:'Импульс',ent:'Момент входа',news:'Новости и ожидания',mix:'Диверсификация',risk:'Риск',yield:'Доходность',rate:'Срок и ставка',safety:'Надёжность',liq:'Ликвидность'};
 const c10=x=>Math.max(0,Math.min(10,x)),mln=v=>nf0.format(v/1e6)+' млн ₽';
 const RS={'Недвижимость':1,'IT':.7,'Ритейл':.5,'Энергетика':.4,'Банки':-.4,'Финансы':-.2};
 const hl=i=>'«'+cut(i.t,90)+'» ('+i.s+', '+i.d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'})+')';
@@ -317,31 +324,43 @@ async function deepBonds(ids){const need=ids.filter(id=>!BDC[id]);if(!need.lengt
 function warmIdeas(){candNews(LASTC);deepBonds(LASTB)}
 function whyNot(a,b){const d=Object.keys(a.f).map(k=>[k,a.f[k]-b.f[k]]).filter(x=>x[1]>=1.5).sort((x,y)=>y[1]-x[1]).slice(0,2);
  return d.length?'слабее по: '+d.map(([k])=>`${FL[k].toLowerCase()} (${lbl(b.f[k])}, у выбранной ${lbl(a.f[k])})`).join(', '):'почти не отличается по факторам, выбрана по совокупности'}
-function evalShare(r,ctx){const sec=SECT[r.secid]||'Другое',wsec=ctx.ws[sec]||0,fresh=wsec<=.05,nw=sentiment(newsOf(r.secid,r.name)),rs=RS[sec]||0,dv=ctx.rv.dir=='down'?1:ctx.rv.dir=='up'?-1:0,f={},pros=[],cons=[],ch=[];
- f.div=r.y==null?5:c10(r.y/1.2);if(r.nd)f.div=c10(f.div+1.2);
- f.trend=c10((r.up?8:r.down?2:5)+(r.r1==null?0:Math.max(-2,Math.min(2,r.r1/15))));
+function evalShare(r,ctx){const sec=SECT[r.secid]||'Другое',wsec=ctx.ws[sec]||0,fresh=wsec<=.05,nw=ctx.nw?ctx.nw(r):sentiment(newsOf(r.secid,r.name)),rs=RS[sec]||0,dv=ctx.rv.dir=='down'?1:ctx.rv.dir=='up'?-1:0,f={},pros=[],cons=[],ch=[],ix=ctx.idx||{};
+ const m=r.mom!=null?r.mom:r.r1,cc=ctx.corr?ctx.corr(r):null,ext=r.ext;
+ /* импульс относительно рынка; в падающем тренде оценка ограничена — «падающие ножи» не ловим */
+ f.mom=m==null?5:c10(5+(m-(ix.mom||0))/10);if(r.down)f.mom=Math.min(f.mom,4);
+ /* момент входа: перегретая цена хуже, цена около средней лучше */
+ f.ent=ext==null?5:ext>40?2:ext>25?4:ext>12?6:ext>=-6?8:ext>=-15?6.5:ext>=-30?((r.r3||0)>0?6:4):3;
+ /* риск: волатильность и глубина прошлых просадок, малая ликвидность */
+ f.risk=c10(9-(r.vol==null?15:r.vol)/10-(r.mdd==null?15:-r.mdd)/20-(r.avgVal!=null&&r.avgVal<3e7?2:0));
+ /* вклад в портфель: новая отрасль и слабая корреляция с тем, что уже есть */
+ f.mix=c10((fresh?9:wsec<.15?6:3)+(cc==null?0:cc<.55?1.5:cc>.8?-1.5:0));
  f.news=c10(5+(nw.pos-nw.neg)*1.2-(nw.risk?2:0)+(nw.div?1:0)+(nw.buy?1:0)+rs*dv*1.5);
- f.mix=fresh?9:wsec<.15?6:3;
- f.risk=c10((r.dd52==null?5:r.dd52>-10?8:r.dd52>-25?6:r.dd52>-40?4:2)-(r.avgVal!=null&&r.avgVal<3e7?2:0));
- const wt={div:.25,trend:.2,news:.2,mix:.2,risk:.15},total=Object.keys(wt).reduce((a,k)=>a+f[k]*wt[k],0);
- if(r.y!=null){if(r.y>=3)pros.push(`дивидендная доходность за год ${W(r.y)}`);else cons.push(`дивиденды скромные (${W(r.y)} за год), а цель портфеля — пассивный доход`)}
- if(r.nd)pros.push(`ожидания: объявлены дивиденды ${nf2.format(r.nd.v)} ₽ на акцию (${W(r.nd.v/r.price*100)} к цене), реестр закрывается ${dmy(r.nd.d)}`);
- if(r.up)pros.push('цена выше средних за 50 и 200 дней: тренд вверх');else if(r.down)cons.push('цена ниже средней за 200 дней: тренд вниз');
- if(r.r1!=null)(r.r1>=0?pros:cons).push(`за год ${P(r.r1)}`);
- if(nw.n){if(nw.pos>nw.neg)pros.push(`новости: за 2 недели позитива больше (${nw.pos} из ${nw.n}); свежее — ${hl(nw.top[0])}`);else if(nw.neg>nw.pos)cons.push(`новости: за 2 недели негатива больше (${nw.neg} из ${nw.n}); свежее — ${hl(nw.top[0])}`);else pros.push(`новости нейтральные (${nw.n} за 2 недели); свежее — ${hl(nw.top[0])}`);
+ const known=r.y!=null;if(known){f.div=c10(r.y/1.2);if(r.nd)f.div=c10(f.div+1.2)}
+ const wt={mom:.2,ent:.1,risk:.17,mix:.2,news:.15};if(known)wt.div=.18;
+ const sw=Object.keys(wt).reduce((a,k)=>a+wt[k],0),total=Object.keys(wt).reduce((a,k)=>a+f[k]*wt[k],0)/sw;
+ if(known){if(r.y>=3)pros.push(`дивидендная доходность за год ${W(r.y)}`);else cons.push(`дивиденды скромные (${W(r.y)} за год)`)}
+ if(r.nd)pros.push(`объявлены дивиденды ${nf2.format(r.nd.v)} ₽ на акцию (${W(r.nd.v/r.price*100)} к цене), реестр закрывается ${dmy(r.nd.d)}`);
+ if(m!=null){if(ix.mom!=null){const d=m-ix.mom;if(d>=3)pros.push(`импульс: за 12 месяцев (без последнего) ${P(m)} против ${P(ix.mom)} у индекса Мосбиржи — обгоняет рынок`);else if(d<=-10)cons.push(`импульс: ${P(m)} за 12 месяцев против ${P(ix.mom)} у индекса — отстаёт от рынка`)}else(m>=0?pros:cons).push(`за год ${P(m)}`)}
+ if(r.up)pros.push('цена выше средних за 50 и 200 дней: тренд вверх');else if(r.down)cons.push('цена ниже средней за 200 дней: тренд вниз, покупать против тренда рискованно');
+ if(ext!=null){if(ext>25)cons.push(`цена на ${nf0.format(ext)}% выше средней за 200 дней: бумага перегрета, откат вероятнее обычного`);else if(ext>=-6&&ext<=12)pros.push(`цена вблизи средней за 200 дней (${P(ext)}): вход без перегрева`)}
+ if(r.vol!=null){if(r.vol<=28)pros.push(`спокойная бумага: колебания цены около ±${nf0.format(r.vol)}% в год`);else if(r.vol>=45)cons.push(`высокая волатильность (около ±${nf0.format(r.vol)}% в год), поэтому сумма покупки уменьшена`)}
+ if(cc!=null){if(cc<.55)pros.push(`слабо связана с вашими акциями (корреляция ${nf2.format(cc)}): снижает общий риск портфеля`);else if(cc>.8)cons.push(`почти повторяет ваши акции (корреляция ${nf2.format(cc)}): диверсификация небольшая`)}
+ if(nw.n){if(nw.pos>nw.neg)pros.push(`новости: за 2 недели позитива больше (${nw.pos} из ${nw.n}); свежее — ${hl(nw.top[0])}`);else if(nw.neg>nw.pos)cons.push(`новости: за 2 недели негатива больше (${nw.neg} из ${nw.n}); свежее — ${hl(nw.top[0])}`);
   if(nw.risk)cons.push('в новостях есть упоминания санкций и ограничений');if(nw.buy)pros.push('в новостях упоминается выкуп акций, это поддерживает цену')}
  if(rs&&dv)(rs*dv>0?pros:cons).push(`ожидание ${dv>0?'снижения':'повышения'} ключевой ставки по новостям ${rs*dv>0?'обычно помогает':'обычно давит на'} отрасль «${sec}»`);
  if(fresh)pros.push(`в портфеле нет отрасли «${sec}»: это диверсификация`);else if(wsec>=.15)cons.push(`отрасль «${sec}» уже занимает ${W(wsec*100)} портфеля`);
- if(r.dd52!=null&&r.dd52<-25)cons.push(`цена на ${nf0.format(-r.dd52)}% ниже годового максимума`);
  const own_=ctx.owned[r.secid]||0,q=lotQ(r.price,r.lot,ctx.amt),cost=q*r.price,after=own_+cost/ctx.tot,aft2=wsec+cost/ctx.tot;
  if(r.avgVal!=null)ch.push(r.avgVal>=5e7?['ok',`ликвидность: оборот ≈ ${mln(r.avgVal)} в день, купить и продать легко`]:r.avgVal>=1e7?['warn',`оборот невысокий (≈ ${mln(r.avgVal)} в день), заявки могут исполняться хуже`]:['bad',`оборот слишком мал (≈ ${mln(r.avgVal)} в день)`]);
  ch.push(q>0?['ok',`суммы хватает на ${N(q)} шт (лот ${r.lot} шт), стоимость ${R(cost)}`]:['bad',`суммы ${R(ctx.amt)} не хватает даже на один лот (${R(r.price*r.lot)})`]);
  ch.push(after<=.12?['ok',`после покупки доля бумаги ${W(after*100)} (предел 12%)`]:['warn',`после покупки доля бумаги ${W(after*100)}, выше разумных 12%`]);
  ch.push(aft2<=.35?['ok',`доля отрасли «${sec}» после покупки ${W(aft2*100)} (предел 35%)`]:['bad',`доля отрасли «${sec}» превысит 35%`]);
  if(r.nd){const lb=lastBuyDay(r.nd.d);ch.push(lb>=new Date()?['ok',`дивиденд ${nf2.format(r.nd.v)} ₽ получите, если купить до ${lb.toLocaleDateString('ru-RU',{day:'2-digit',month:'long'})} включительно (расчёты T+1)`]:['info',`реестр ${dmy(r.nd.d)} уже закрыт: этот дивиденд по новой покупке не положен`])}
- else if(r.lastReg&&(new Date()-dd(r.lastReg))/864e5<30)ch.push(['info',`реестр закрылся ${dmy(r.lastReg)}: этот дивиденд вы уже не получите, зато после отсечки цена обычно ниже`]);
+ else if(r.lastReg&&(new Date()-dd(r.lastReg))/864e5<30)ch.push(['info',`реестр закрылся ${dmy(r.lastReg)}: этот дивиденд вы уже не получите`]);
  if(r.y!=null&&r.y>25)ch.push(['bad',`доходность ${W(r.y)} выглядит разовой выплатой`]);
  ch.push(r.down?['bad','тренд вниз: цена ниже средней за 200 дней']:['ok','тренд не вниз']);
+ if(ext!=null&&ext>25)ch.push(['warn',`перегрев: цена на ${nf0.format(ext)}% выше средней за 200 дней`]);
+ if(r.vol!=null&&r.vol>60)ch.push(['warn',`очень высокая волатильность (около ±${nf0.format(r.vol)}% в год)`]);
+ if(cc!=null&&cc>.85)ch.push(['warn',`корреляция с вашими акциями ${nf2.format(cc)}: бумага почти не добавляет защиты`]);
  ch.push(nw.n?(nw.risk&&nw.neg>=2?['bad','в новостях преобладает негатив и упоминаются санкции']:nw.neg>nw.pos?['warn','в новостях больше негатива, чем позитива']:['ok',`новости за 2 недели не тревожные (${nw.n})`]):['info','свежих новостей по бумаге не найдено, оценка нейтральная']);
  if(r.dd52!=null&&r.dd52<-40)ch.push(['warn',`просадка от годового максимума ${W(r.dd52)}`]);
  return{f,total,pros,cons,ch,q,cost}}
@@ -383,62 +402,71 @@ function evalFund(f_,ctx,amt){const gold=f_.cls=='gold',nw=gold?sentiment(newsOf
  ch.push(after<=.2?['ok',`после покупки доля фонда ${W(after*100)}`]:['warn',`после покупки доля фонда ${W(after*100)}, выше 20%`]);
  ch.push(f_.down&&f_.cls!='mm'?['info','цена ниже средней за 200 дней: учтено в оценке тренда']:['ok','тренд не вниз']);ch.push(['info','комиссию управляющей компании фонда уже учитывает его цена']);
  return{f,total,pros,cons,ch,q,cost}}
-function buildIdeas(){const pl=plan(),tot=pl.tot,L=[],fee=v=>R(v*S.fee/100),U=UNI||{SC:[],BD:[],FD:[]},own=new Set(S.positions.map(p=>p.secid)),rv=rateView(),A=pl.a;LASTC=[];LASTB=[];
- const card=(cat,tag,c,title,why,risk,pri,x)=>L.push({cat,tag,c,title,why,risk,pri,...(x||{})});
+function buildIdeas(){const pl=plan(),tot=pl.tot,fee=v=>R(v*S.fee/100),U=UNI||{SC:[],BD:[],FD:[],IDX:null},own=new Set(S.positions.map(p=>p.secid)),rv=rateView(),B=[],X=[];LASTC=[];LASTB=[];
+ const hid=k=>((S.skip||{})[k]||0)>Date.now()-14*864e5,nwm={},nwf=r=>nwm[r.secid]||(nwm[r.secid]=sentiment(newsOf(r.secid,r.name)));
+ const gap=c=>(pl.tgt[c]-pl.cur[c])/pl.T*100,gb=c=>Math.max(-2,Math.min(2,gap(c)/8)),idx=U.IDX||null;
  const held=p=>{const nw=sentiment(newsOf(p.secid,(Q[p.secid]||{}).name)),nx=E.ev.find(e=>e.s==p.secid&&!e.est),a=[];
   a.push(nw.n?`в новостях за 2 недели ${nw.pos} позитивных и ${nw.neg} негативных из ${nw.n}${nw.top[0]?'; свежее — '+hl(nw.top[0]):''}`:'свежих новостей по бумаге нет');
   if(nx)a.push(`Ближайшая выплата ${nx.d.toLocaleDateString('ru-RU',{day:'2-digit',month:'long'})}: ${R(nx.a)}${nx.k=='дивиденд'?', до закрытия реестра эту бумагу лучше не продавать':''}`);return{nw,txt:a.join('. ')+'.'}};
- const owned={},ws={};S.positions.forEach(p=>{const v=unit(p)*p.qty/tot;owned[p.secid]=v;if(p.kind=='share'){const s=SECT[p.secid]||'Другое';ws[s]=(ws[s]||0)+v}});
- /* 1. концентрация и убытки с учётом новостей */
- for(const p of S.positions){const v=unit(p)*p.qty,w=v/tot*100,pn=pnPct(p),pr=unit(p),lot=(Q[p.secid]||{}).lot||1,h=held(p);
+ const owned={},ws={};S.positions.forEach(p=>{const v=unit(p)*p.qty/tot;owned[p.secid]=v;if(p.kind=='share'){const s_=SECT[p.secid]||'Другое';ws[s_]=(ws[s_]||0)+v}});
+ /* доходность уже имеющихся акций: нужна, чтобы оценить, добавит ли новая бумага защиту или будет ходить синхронно */
+ const hs=S.positions.filter(p=>p.kind=='share').map(p=>({p,r:U.SC.find(x=>x.secid==p.secid)})).filter(x=>x.r&&x.r.cl&&x.r.cl.length>100);let prt=null;
+ if(hs.length){const L_=Math.min(...hs.map(x=>x.r.cl.length))-1,vs=hs.map(x=>unit(x.p)*x.p.qty),sv=vs.reduce((a,b)=>a+b,0);prt=Array.from({length:L_},(_,i)=>hs.reduce((a,x,j)=>{const c=x.r.cl,n=c.length,k=n-L_+i;return a+vs[j]/sv*(c[k]/c[k-1]-1)},0))}
+ const rm={},corr=r=>{if(!prt||!r.cl||r.cl.length<100)return null;const a=rm[r.secid]||(rm[r.secid]=rets_(r.cl));return corr_(a,prt)};
+ const topF=e=>Object.keys(e.f).sort((a,b)=>e.f[b]-e.f[a]).slice(0,2).map(k=>FL[k].toLowerCase()).join(', ');
+ /* ---- облигации ---- */
+ {const okB=b=>b.yrs>=1&&b.yrs<=7&&b.liq>=1e6&&!b.offer&&b.price>0,isO=b=>!b.corp&&/^SU/.test(b.secid)&&b.dur>=1.5&&b.dur<=6,allO=U.BD.filter(b=>okB(b)&&isO(b)),
+   base=allO.length?allO.map(b=>b.yld).sort((a,b)=>a-b)[Math.floor(allO.length/2)]:null,
+   cand=U.BD.filter(b=>okB(b)&&!own.has(b.secid)&&!hid('bond'+b.secid)&&(!b.corp?isO(b):(base!=null&&b.yld-base>=.5&&b.yld-base<=4.5&&b.liq>=3e6&&b.dur<=4))),ylds=cand.map(b=>b.yld);
+  const ev=cand.map(b=>{const a=(b.corp?.05:.08)*tot;return{b,a,e:evalBond(b,{rv,base,ylds,owned,tot,amt:a})}}),ok=ev.filter(x=>verdict(x.e.ch)!='bad').sort((a,b)=>rk(b)-rk(a)),rej=ev.filter(x=>verdict(x.e.ch)=='bad').sort((a,b)=>rk(b)-rk(a));
+  const pk=[...ok.filter(x=>!x.b.corp).slice(0,3),...ok.filter(x=>x.b.corp).slice(0,5)];
+  ok.slice(0,6).forEach(x=>LASTB.push(x.b.secid));ok.filter(x=>x.b.corp).slice(0,4).forEach(x=>LASTC.push({secid:x.b.secid,name:issuer(x.b.name)}));
+  for(const x of pk){const b=x.b,e=x.e,oth=ok.filter(y=>y!==x&&y.b.corp==b.corp).slice(0,2),rj=rej.filter(y=>y.b.corp==b.corp).slice(0,1);
+   B.push({side:'buy',cat:'bond',key:'bond'+b.secid,tag:b.corp?'КУПИТЬ · корпоративная облигация':'КУПИТЬ · ОФЗ',c:'t-buy',title:`${b.secid} ${esc(b.name||'')}: ${buyTxt(b.price,1,x.a)}`,
+    why:`лучшие стороны: ${topF(e)}. Облигаций в портфеле ${W(pl.cur.bond/tot*100)} при цели ${S.tw.bond}%. Погашение ${dmy(b.mat)} (${nf1.format(b.yrs)} г.), дюрация ${nf1.format(b.dur)} г.`,
+    risk:`цены облигаций падают при росте ключевой ставки (если держать до погашения, это не потеря). ${b.corp?'Эмитент может не заплатить, поэтому доля выпуска ограничена. ':''}Комиссия ≈ ${fee(x.a)}.`,
+    range:`чувствительность к ставке: рост ставки на 1 п. п. снизит цену примерно на ${nf1.format(b.dur)}%, снижение — повысит на столько же`,
+    inval:b.corp?'пересмотреть, если спред к ОФЗ заметно вырастет или появятся негативные новости по эмитенту':'торопиться с продажей нет причин: при удержании до погашения вернётся номинал',
+    rs:rk(x)+gb('bond'),...xfrom(e),alts:[...oth.map(y=>`${y.b.secid} ${esc(y.b.name||'')}: ${whyNot(e,y.e)}`),...rj.map(y=>`${y.b.secid} ${esc(y.b.name||'')}: отклонён — ${firstBad(y.e.ch)}`)],act:e.q>0?{side:'buy',secid:b.secid,qty:e.q,price:b.price}:null})}}
+ /* ---- акции: жадный подбор, каждая следующая оценивается с учётом уже выбранных ---- */
+ if(U.SC.length){const slice=.06*tot,c2={ws:{...ws},owned:{...owned}},cands=U.SC.filter(r=>!own.has(r.secid)&&!hid('share'+r.secid)),picks=[];
+  const run=()=>cands.filter(r=>!picks.some(p=>p.r===r)).map(r=>{const sc_=SECT[r.secid]||'Другое',a=Math.max(0,Math.min(slice*Math.max(.5,Math.min(1.3,25/(r.vol||30))),.1*tot-(c2.owned[r.secid]||0)*tot,(.35-(c2.ws[sc_]||0))*tot));
+   return{r,a,e:evalShare(r,{ws:c2.ws,owned:c2.owned,tot,rv,amt:a,idx,corr,nw:nwf})}});
+  for(let k=0;k<12;k++){const ok=run().filter(x=>verdict(x.e.ch)!='bad').sort((a,b)=>rk(b)-rk(a));if(!ok.length)break;const t=ok[0];picks.push(t);const sc_=SECT[t.r.secid]||'Другое';c2.ws[sc_]=(c2.ws[sc_]||0)+t.e.cost/tot;c2.owned[t.r.secid]=(c2.owned[t.r.secid]||0)+t.e.cost/tot}
+  const fin=run(),rej=fin.filter(x=>verdict(x.e.ch)=='bad').sort((a,b)=>rk(b)-rk(a)),rest=fin.filter(x=>verdict(x.e.ch)!='bad').sort((a,b)=>rk(b)-rk(a));
+  picks.slice(0,8).forEach(x=>LASTC.push({secid:x.r.secid,name:x.r.name}));
+  for(const x of picks){const r=x.r,e=x.e,stop=Math.min(25,Math.max(10,(r.vol||30)*.6));
+   B.push({side:'buy',cat:'share',key:'share'+r.secid,tag:'КУПИТЬ · акция',c:'t-buy',title:`${r.secid} ${esc(r.name||'')}: ${buyTxt(r.price,r.lot,x.a)}`,
+    why:`лучшие стороны: ${topF(e)}. Акций в портфеле ${W(pl.cur.share/tot*100)} при цели ${S.tw.share}%. Выбрана из ${U.SC.length} проанализированных бумаг.`,
+    risk:`дивиденды не гарантированы, цена может падать. Комиссия ≈ ${fee(x.a)}.`,
+    range:r.vol!=null?`обычное колебание цены около ±${nf0.format(r.vol)}% в год; за последний год от пика она падала максимум на ${nf0.format(-r.mdd)}%. Сумма покупки подогнана под этот риск: спокойные бумаги берутся крупнее, резкие — меньше`:'',
+    inval:`пересмотреть идею, если цена закрепится ниже ${r.s200?nf2.format(r.s200)+' ₽ (средняя за 200 дней)':'среднего за 200 дней'} или упадёт на ${nf0.format(stop)}% от покупки, а также при новостях о санкциях или сокращении дивидендов`,
+    rs:rk(x)+gb('share'),...xfrom(e),alts:[...rest.slice(0,2).map(y=>`${y.r.secid} ${esc(y.r.name||'')}: ${whyNot(e,y.e)}`),...rej.slice(0,2).map(y=>`${y.r.secid}: отклонена — ${firstBad(y.e.ch)}`)],act:e.q>0?{side:'buy',secid:r.secid,qty:e.q,price:r.price}:null})}}
+ /* ---- фонды и золото ---- */
+ const fe=(cls,n,amtF)=>U.FD.filter(f=>f.cls==cls&&!own.has(f.secid)&&!hid('fund'+f.secid)).map(f=>{const a=Math.min(amtF,Math.max(0,.2*tot-(owned[f.secid]||0)*tot));return{f,a,e:evalFund(f,{tot,owned},a)}}).filter(x=>verdict(x.e.ch)!='bad').sort((a,b)=>rk(b)-rk(a)).slice(0,n);
+ const fcard=(x,tag,klass,why,risk,bonus,rest)=>{const f=x.f,e=x.e;B.push({side:'buy',cat:'fund',key:'fund'+f.secid,tag,c:'t-buy',title:`${f.secid} ${esc(f.name||'')}: ${buyTxt(f.price,f.lot,x.a)}`,why,risk:`${risk} Комиссия брокера ≈ ${fee(x.a)}.`,
+  range:f.vol!=null?`обычное колебание цены около ±${nf0.format(f.vol)}% в год, максимальная просадка за год ${nf0.format(-f.mdd)}%`:'',inval:klass=='gold'?'золото — защитная часть: не продавать из-за краткосрочного падения, пересматривать при изменении доли':'',
+  rs:rk(x)+bonus,...xfrom(e),alts:rest.map(y=>`${y.f.secid} ${esc(y.f.name||'')}: ${whyNot(e,y.e)}`),act:e.q>0?{side:'buy',secid:f.secid,qty:e.q,price:f.price}:null})};
+ {const L=fe('eq',2,.08*tot);L.forEach((x,i)=>fcard(x,'КУПИТЬ · фонд акций','share',`один фонд заменяет десятки отдельных акций${sharesCount()<8?`, а у вас только ${sharesCount()} акций`:''}. Лучшие стороны: ${topF(x.e)}.`,'фонд повторяет рынок целиком и падает вместе с ним.',gb('share')+(sharesCount()<8?1:-.5),L.filter(y=>y!==x)))}
+ {const L=fe('gold',2,.05*tot);L.forEach(x=>fcard(x,'КУПИТЬ · золото','gold',`золота в портфеле ${W(pl.cur.gold/tot*100)} при цели ${S.tw.gold}%: оно сглаживает просадки, когда падают акции и облигации.`,'курс рубля и цена золота влияют на результат; золото не приносит выплат.',gb('gold'),L.filter(y=>y!==x)))}
+ {const L=fe('bond',1,.06*tot);L.forEach(x=>fcard(x,'КУПИТЬ · фонд облигаций','bond',`готовый набор облигаций одной покупкой. Облигаций в портфеле ${W(pl.cur.bond/tot*100)} при цели ${S.tw.bond}%.`,'цена фонда падает при росте ставок.',gb('bond')-.5,[]))}
+ {const idle=S.cash-pl.reserve;if(idle>tot*.03){const L=fe('mm',1,Math.min(idle,.15*tot));L.forEach(x=>fcard(x,'КУПИТЬ · фонд денежного рынка','cash',`свободные деньги на счёте не приносят дохода и обесцениваются из-за инфляции. Фонд зарабатывает близко к ключевой ставке, продать можно в любой торговый день.${rv.dir=='down'?' Новости указывают на снижение ставки: доходность такого фонда будет падать.':''}`,'доходность плавает вслед за ставкой и не гарантирована.',.5,[]))}}
+ /* ---- продажи ---- */
+ const topS=B.find(i=>i.cat=='share');
+ for(const p of S.positions){if(p.kind=='bond')continue;const v=unit(p)*p.qty,w=v/tot*100,pn=pnPct(p),pr=unit(p),lot=(Q[p.secid]||{}).lot||1,h=held(p),r=U.SC.find(x=>x.secid==p.secid),key='sell'+p.secid;if(hid(key))continue;
+  const rnd=(q)=>Math.min(p.qty,Math.max(lot,Math.floor(q/lot)*lot)),tx=q=>pn>0?`продажа в плюсе (${P(pn)}) приведёт к налогу НДФЛ с прибыли`:`продажа зафиксирует убыток (${P(pn)})`;
+  let c=null;
   if(w>25&&p.kind!='fund'){const q=Math.min(p.qty,Math.ceil((v-.2*tot)/pr/lot)*lot);
-   card('sell','ПРОДАТЬ (по желанию)','t-sell',`${p.secid}: около ${N(q)} шт ≈ ${R(q*pr)}`,`на бумагу приходится ${W(w)} портфеля при разумном пределе 15–20%: плохая новость по одному эмитенту ударит сразу по всему портфелю. Продажа освободит деньги для диверсификации. Новости: ${h.txt}${h.nw.neg>h.nw.pos?' Негатив в новостях усиливает довод в пользу сокращения.':''}`,`${pn>0?`продажа в плюсе (${P(pn)}) приведёт к налогу НДФЛ с прибыли и комиссии около ${fee(q*pr)}`:`продажа зафиксирует убыток (${P(pn)}), комиссия около ${fee(q*pr)}`}. Можно обойтись и без продажи, просто докупая другие бумаги.`,2)}
-  else if(pn<-15)card('sell','ПЕРЕСМОТРЕТЬ','t-hold',`${p.secid}: ${P(pn)} к цене покупки`,`решите, сохранился ли довод, ради которого вы покупали. Что говорят новости и ожидания: ${h.txt} ${h.nw.neg>h.nw.pos?'Негатив в новостях усиливает сомнения.':'Резких негативных сигналов в новостях нет, это довод держать.'}`,`продажа фиксирует убыток; если довод в силе, а цена просто упала, часто разумнее держать или усреднять небольшой суммой.`,2)}
- /* 2. облигации */
- if(A.bond>tot*.01){const o=U.BD.filter(b=>!own.has(b.secid)&&b.yrs>=1&&b.yrs<=7&&b.liq>=1e6&&!b.offer&&b.price>0),ofz=o.filter(b=>!b.corp&&/^SU/.test(b.secid)&&b.dur>=1.5&&b.dur<=6),
-   base=ofz.length?ofz.map(b=>b.yld).sort((a,b)=>a-b)[Math.floor(ofz.length/2)]:null,
-   cand=o.filter(b=>!b.corp?(/^SU/.test(b.secid)&&b.dur>=1.5&&b.dur<=6):(base!=null&&b.yld-base>=.5&&b.yld-base<=4.5&&b.liq>=3e6&&b.dur<=4)),
-   hasO=cand.some(b=>!b.corp),hasC=cand.some(b=>b.corp),ylds=cand.map(b=>b.yld),share=b=>b.corp?(hasO?.4:1):(hasC?.6:1);
-  const ev=cand.map(b=>({b,e:evalBond(b,{rv,base,ylds,owned,tot,amt:A.bond*share(b)})})),ok=ev.filter(x=>verdict(x.e.ch)!='bad').sort((a,b)=>rk(b)-rk(a)),rej=ev.filter(x=>verdict(x.e.ch)=='bad').sort((a,b)=>rk(b)-rk(a));
-  const picks=[ok.find(x=>!x.b.corp),ok.find(x=>x.b.corp)].filter(Boolean);ok.slice(0,4).forEach(x=>LASTB.push(x.b.secid));ok.filter(x=>x.b.corp).slice(0,3).forEach(x=>LASTC.push({secid:x.b.secid,name:issuer(x.b.name)}));
-  let shown=0;
-  for(const pk of picks){const b=pk.b,amt=Math.min(A.bond*share(b),b.corp?Math.max(0,.1*tot-(owned[b.secid]||0)*tot):Infinity),e2=evalBond(b,{rv,base,ylds,owned,tot,amt});if(verdict(e2.ch)=='bad')continue;shown++;const oth=ok.filter(x=>x!==pk&&x.b.corp==b.corp).slice(0,2),rj=rej.filter(x=>x.b.corp==b.corp).slice(0,1);
-   card('bond','КУПИТЬ','t-buy',`${b.secid} ${esc(b.name||'')}: ${buyTxt(b.price,1,amt)}`,
-    `доля облигаций ${W(pl.cur.bond/tot*100)} при цели ${S.tw.bond}%. Срок до ${dmy(b.mat)} (${nf1.format(b.yrs)} г.), дюрация ${nf1.format(b.dur)} г.`,
-    `цены облигаций падают при росте ключевой ставки (если держать до погашения, это не потеря). ${b.corp?'Эмитент может не заплатить, поэтому доля такого выпуска ограничена. ':''}Комиссия ≈ ${fee(Math.min(amt,lotQ(b.price,1,amt)*b.price))}.`,3,
-    {...xfrom(e2),alts:[...oth.map(x=>`${x.b.secid} ${esc(x.b.name||'')}: ${whyNot(e2,x.e)}`),...rj.map(x=>`${x.b.secid} ${esc(x.b.name||'')}: отклонён — ${firstBad(x.e.ch)}`)]})}
-  if(!shown){const bs=S.positions.filter(p=>p.kind=='bond').sort((a,b)=>(/^SU/.test(b.secid)-/^SU/.test(a.secid))||unit(b)*b.qty-unit(a)*a.qty);
-   if(bs[0]){const p=bs[0],pn=pnPct(p);card('bond','КУПИТЬ','t-buy',`${p.secid}: докупить ${buyTxt(unit(p),1,A.bond)}`,`доля облигаций ${W(pl.cur.bond/tot*100)} при цели ${S.tw.bond}%. Бумага у вас уже есть. ${/^SU/.test(p.secid)?'ОФЗ — долг государства, риск неплатежа минимальный. ':''}${pn<-3?`Цена на ${nf1.format(-pn)}% ниже вашей цены покупки, поэтому новая покупка выходит выгоднее. `:''}Купоны дают предсказуемый доход. Список новых выпусков появится после загрузки данных биржи.`,`цены облигаций падают при росте ключевой ставки; если держать до погашения, это не потеря. Комиссия ≈ ${fee(A.bond)}.`,3)}}}
- /* 3. акции и индексный фонд */
- if(A.share>tot*.01){const needIdx=sharesCount()<8,effN=2+(needIdx?1:0),ctx={ws,owned,tot,rv,amt:A.share/effN};
-  const c2={ws:{...ws},owned:{...owned},tot,rv,amt:ctx.amt};let ev=U.SC.map(r=>({r,e:evalShare(r,c2)}));const picks=[];
-  for(let k=0;k<2;k++){const top=ev.filter(x=>verdict(x.e.ch)!='bad'&&!picks.includes(x)).sort((a,b)=>rk(b)-rk(a))[0];if(!top)break;picks.push(top);
-   const sc_=SECT[top.r.secid]||'Другое';c2.ws[sc_]=(c2.ws[sc_]||0)+top.e.cost/tot;c2.owned[top.r.secid]=(c2.owned[top.r.secid]||0)+top.e.cost/tot;ev=ev.map(x=>picks.includes(x)?x:{r:x.r,e:evalShare(x.r,c2)})}
-  const ok=ev.filter(x=>verdict(x.e.ch)!='bad'&&!picks.includes(x)).sort((a,b)=>rk(b)-rk(a)),rej=ev.filter(x=>verdict(x.e.ch)=='bad').sort((a,b)=>rk(b)-rk(a));
-  [...picks,...ok].slice(0,6).forEach(x=>LASTC.push({secid:x.r.secid,name:x.r.name}));
-  let fund=null;if(needIdx){const fe=U.FD.filter(f=>f.cls=='eq'&&!own.has(f.secid)).map(f=>({f,e:evalFund(f,{tot,owned},A.share/effN)})).filter(x=>verdict(x.e.ch)!='bad').sort((a,b)=>rk(b)-rk(a));fund=fe[0]||null}
-  const n=(picks.length+(fund?1:0))||1,amt=A.share/n;
-  if(fund){const fa=Math.min(amt,Math.max(0,.2*tot-(owned[fund.f.secid]||0)*tot)),e=evalFund(fund.f,{tot,owned},fa);if(verdict(e.ch)!='bad')card('fund','КУПИТЬ (фонд)','t-buy',`${fund.f.secid} ${esc(fund.f.name||'')}: ${buyTxt(fund.f.price,fund.f.lot,fa)}`,`в портфеле только ${sharesCount()} акций, а индексный фонд за одну покупку даёт сотню эмитентов из разных отраслей. Так проще снизить риск одной бумаги.`,`фонд повторяет рынок целиком: падает вместе с ним. Комиссия брокера ≈ ${fee(amt)}.`,3,xfrom(e))}
-  for(const pk of picks){const r=pk.r,sc_=SECT[r.secid]||'Другое',a2=Math.min(amt,Math.max(0,Math.min(.1*tot-(owned[r.secid]||0)*tot,(.35-(ws[sc_]||0))*tot))),e=evalShare(r,{...ctx,amt:a2});if(verdict(e.ch)=='bad')continue;const oth=ok.filter(x=>x!==pk).slice(0,2),rj=rej.slice(0,2);
-   card('share','КУПИТЬ (идея)','t-buy',`${r.secid} ${esc(r.name||'')}: ${buyTxt(r.price,r.lot,a2)}`,`акции в портфеле ${W(pl.cur.share/tot*100)} при цели ${S.tw.share}%. Выбрана лучшая из ${ev.length} проанализированных бумаг по сумме факторов.`,
-    `дивиденды не гарантированы и могут быть сокращены или отменены, цена может падать. Комиссия ≈ ${fee(a2)}.`,3,
-    {...xfrom(e),alts:[...oth.map(x=>`${x.r.secid} ${esc(x.r.name||'')}: ${whyNot(e,x.e)}`),...rj.map(x=>`${x.r.secid}: отклонена — ${firstBad(x.e.ch)}`)]})}}
- /* 4. золото */
- if(A.gold>tot*.01){const ge=U.FD.filter(f=>f.cls=='gold'&&!own.has(f.secid)).map(f=>({f,e:evalFund(f,{tot,owned},A.gold)})),ok=ge.filter(x=>verdict(x.e.ch)!='bad').sort((a,b)=>rk(b)-rk(a)),g=ok[0];
-  const ga=g?Math.min(A.gold,Math.max(0,.2*tot-(owned[g.f.secid]||0)*tot)):0,ge2=g?evalFund(g.f,{tot,owned},ga):null;
-  if(g&&verdict(ge2.ch)!='bad')card('fund','КУПИТЬ (золото)','t-buy',`${g.f.secid} ${esc(g.f.name||'')}: ${buyTxt(g.f.price,g.f.lot,ga)}`,`золота в портфеле ${W(pl.cur.gold/tot*100)} при цели ${S.tw.gold}%. Оно сглаживает просадки, когда падают акции и облигации.`,`курс рубля и цена золота влияют на результат; держите небольшую долю. Комиссия ≈ ${fee(A.gold)}.`,3,
-   {...xfrom(ge2),alts:ok.slice(1,3).map(x=>`${x.f.secid} ${esc(x.f.name||'')}: ${whyNot(ge2,x.e)}`)})}
- /* 5. свободные деньги */
- const idle=S.cash-pl.reserve;if(idle>tot*.05){const sp=Object.values(A).reduce((a,b)=>a+b,0),keep=Math.max(0,idle-sp);
-  const me=U.FD.filter(f=>f.cls=='mm'&&!own.has(f.secid)).map(f=>({f,e:evalFund(f,{tot,owned},keep)})).filter(x=>verdict(x.e.ch)!='bad').sort((a,b)=>rk(b)-rk(a))[0];
-  if(keep>tot*.02)card('fund','ПОКА НЕ ТРАТИТЬ','t-hold',`Свободные ${R(keep)}: ${me?`разместите в ${me.f.secid} ${esc(me.f.name||'')}`:'разместите в фонде денежного рынка'}`,`деньги на брокерском счёте обычно не приносят дохода и обесцениваются из-за инфляции. Фонд денежного рынка зарабатывает близко к ключевой ставке, и его можно продать в любой торговый день.${rv.dir=='down'?' Новости указывают на снижение ставки: доходность такого фонда будет падать, поэтому на длинный срок выгоднее облигации.':''}`,`доходность плавает вслед за ставкой и не гарантирована; налог на прибыль платится при продаже. Комиссия ≈ ${fee(keep)}.`,4,me?xfrom(me.e):{});
-  else if(S.cash/tot>.1)card('fund','КУПИТЬ','t-buy',`Вложить свободные ${R(S.cash)}`,`деньги на счёте не приносят дохода и обесцениваются из-за инфляции. Одна покупка вместо нескольких мелких экономит комиссии.`,`рынок может просесть сразу после покупки; если волнуетесь, разделите вложение на 2–3 части по неделям.`,4)}
- /* 6. продажа: тренд и новости */
- if(U.SC.length)for(const p of S.positions.filter(p=>p.kind=='share')){const r=U.SC.find(x=>x.secid==p.secid),pn=pnPct(p),h=held(p),rs=[];
-  if(r&&r.down&&pn<-10)rs.push(`цена ниже средней за 200 дней (тренд вниз), результат к вашей цене покупки ${P(pn)}${r.y!=null&&r.y<3?', выплаты за год всего '+W(r.y):''}`);
-  if(h.nw.risk&&h.nw.neg>=2&&pn<0)rs.push('в новостях преобладает негатив и упоминаются санкции');
-  if(rs.length)card('sell','ПРОДАТЬ / СОКРАТИТЬ (идея)','t-sell',`${p.secid}: рассмотрите сокращение позиции`,`${rs.join('; ')}. Новости и ожидания: ${h.txt} Освободившиеся деньги можно направить в бумаги с лучшей оценкой (см. покупки выше).`,`продажа фиксирует убыток (${R((clean(p)-p.avg)*p.qty)}), комиссия ≈ ${fee(unit(p)*p.qty)}; бумага может отскочить. Если довод покупки в силе, часто разумнее держать.`,2)}
- return L.sort((a,b)=>a.pri-b.pri)}
+   c={tag:'ПРОДАТЬ · снизить долю',title:`${p.secid}: около ${N(q)} шт ≈ ${R(q*pr)}`,why:`на бумагу приходится ${W(w)} портфеля при разумном пределе 15–20%: плохая новость по одному эмитенту ударит сразу по всему портфелю. Новости: ${h.txt}${h.nw.neg>h.nw.pos?' Негатив в новостях усиливает довод в пользу сокращения.':''}`,q,rs:10}}
+  else if(p.kind=='share'&&r){const why=[];
+   if(r.down&&pn<-10)why.push(`цена ниже средней за 200 дней (тренд вниз), результат к вашей цене покупки ${P(pn)}`);
+   if(h.nw.risk&&h.nw.neg>=2&&pn<0)why.push('в новостях преобладает негатив и упоминаются санкции');
+   if(why.length)c={tag:'ПРОДАТЬ · сократить',title:`${p.secid}: около ${N(rnd(p.qty/2))} шт ≈ ${R(rnd(p.qty/2)*pr)}`,why:`${why.join('; ')}. Новости: ${h.txt}`,q:rnd(p.qty/2),rs:8};
+   if(!c&&r.ext!=null&&r.ext>35&&(r.r3||0)>25&&pn>20)c={tag:'ПРОДАТЬ · зафиксировать часть',title:`${p.secid}: около ${N(rnd(p.qty/3))} шт ≈ ${R(rnd(p.qty/3)*pr)}`,why:`цена на ${nf0.format(r.ext)}% выше средней за 200 дней и выросла на ${nf0.format(r.r3)}% за 3 месяца: бумага перегрета, а у вас прибыль ${P(pn)}. Фиксация трети позиции снижает риск отката.`,q:rnd(p.qty/3),rs:6};
+   if(!c&&topS){const eh=evalShare(r,{ws,owned,tot,rv,amt:v,idx,corr,nw:nwf});if(eh.total<=topS.score-2.5&&(eh.f.mom<5||r.down))c={tag:'ЗАМЕНИТЬ',title:`${p.secid} → ${topS.title.split(':')[0]}`,why:`по факторам бумага заметно слабее лучшей идеи на покупку (${topS.title.split(':')[0]}): ${whyNot(topS,{f:eh.f})}. Освободившиеся деньги можно вложить в неё.`,q:p.qty,rs:5,f:eh.f,score:eh.total}}}
+  if(c)X.push({side:'sell',cat:'sell',key,tag:c.tag,c:'t-sell',title:c.title,why:c.why,risk:`${tx()}; комиссия ≈ ${fee(c.q*pr)}. Если довод покупки в силе, часто разумнее держать.`,rs:c.rs,f:c.f,score:c.score,act:c.q>0?{side:'sell',secid:p.secid,qty:Math.min(c.q,p.qty),price:pr}:null})}
+ B.sort((a,b)=>b.rs-a.rs);let left=pl.spend;B.forEach((i,k)=>{i.n=k+1;const c_=i.act?i.act.qty*i.act.price:0;if(c_>0&&left>=c_){left-=c_;i.fit=true}else i.fit=false});
+ X.sort((a,b)=>b.rs-a.rs);return{B,X,pl}}
 function obs(){const{tot}=calc();
  return tip('var(--hint)','Комиссии',`При комиссии ${nf2.format(S.fee)}% и взносах ${R(S.monthly)}/мес на покупки уйдёт около ${R(S.monthly*12*S.fee/100)} в год. Покупайте раз в месяц одной сделкой, а не часто и понемногу.`)
  +tip('var(--ac)','Реинвестируйте выплаты',`Ожидаемый доход за год ≈ ${R(E.annual*.87)} (${W(E.annual*.87/tot*100)} от капитала). Вкладывайте дивиденды и купоны обратно — это главный двигатель роста.`)}
@@ -605,38 +633,48 @@ V.g=()=>{const{tot}=calc(),inf=S.infl,sc=[['Осторожный',S.yield-3],['�
  ${S.steps.map(s=>{const nb=s*12/(S.yield/100);return`<div class="card"><div class="row" style="padding:0"><b>${R0(s)}/мес</b><span class="chip">нужно ≈ ${R0(nb)}</span></div>${bar(tot/nb*100)}<div class="hint" style="margin-top:4px">Сейчас ${W(tot/nb*100)} от нужного капитала</div>
  ${sc.map(([n,r])=>{const need=s*12/(r/100),a=tot>=need?0:months(need,tot,S.monthly,r,S.growth,S.delay),b=tot>=need?0:months(need,tot,S.monthly,r,S.growth,S.delay,inf);return`<div class="row"><span>${n} <span class="hint">${r}%</span></span><span style="text-align:right">${Y(a)}<div class="hint">с инфляцией: ${Y(b)}</div></span></div>`}).join('')}</div>`}).join('')}
  <div class="hint">Без налогов. Ориентир, а не прогноз.</div>`};
-let plT='i',idf='all';
+let plT='b',IDEAS=[];
 function uniStatus(){if(unb)return`<div class="card"><div class="hint">Загружаю данные биржи по акциям, облигациям и фондам: ${unp.d} из ${unp.n}…</div>${bar(unp.n?unp.d/unp.n*100:2)}</div>`;
  if(unErr)return`<div class="card"><div class="hint" style="margin-bottom:8px">Биржа пока не ответила, поэтому идеи построены только по вашим бумагам.</div><button class="go sm" onclick="runUniverse()">Повторить загрузку</button></div>`;
  if(!UNI)return`<div class="card"><button class="go" onclick="runUniverse()">Подобрать идеи по акциям, облигациям и фондам</button></div>`;
  return`<div class="hint" style="margin:0 4px 8px">Данные биржи на ${new Date(UNI.ts).toLocaleString('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}: ${UNI.SC.length} акций, ${UNI.BD.length} облигаций, ${UNI.FD.length} фондов. <a onclick="runUniverse()" style="color:var(--ac)">Обновить</a></div>`}
 const ICO={ok:'✅',warn:'⚠️',bad:'⛔',info:'ℹ️'};
-function ideaHtml(i){const li=a=>'<ul style="margin:4px 0 0">'+a.map(x=>`<li>${x}</li>`).join('')+'</ul>';
- const warns=(i.ch||[]).filter(c=>c[0]=='warn'),n=(i.ch||[]).length,okN=(i.ch||[]).filter(c=>c[0]=='ok').length,pr=i.pros||[],cn=i.cons||[];
- const ks=i.f?Object.keys(i.f):[],strong=ks.filter(k=>i.f[k]>=7).map(k=>FL[k].toLowerCase()),weak=ks.filter(k=>i.f[k]<4.5).map(k=>FL[k].toLowerCase());
- const chip=k=>{const v=i.f[k],c=v>=7?'var(--ac)':v<4.5?'var(--rd)':'var(--hint)';return`<span class="chip" style="color:${c}">${FL[k]}: ${lbl(v)}</span>`};
+function ideaHtml(i,k,total){const li=a=>'<ul style="margin:4px 0 0">'+a.map(x=>`<li>${x}</li>`).join('')+'</ul>';
+ const warns=(i.ch||[]).filter(c=>c[0]=='warn'),n=(i.ch||[]).length,okN=(i.ch||[]).filter(c=>c[0]=='ok').length,pr=i.pros||[],cn=i.cons||[],ks=i.f?Object.keys(i.f):[];
+ const chip=kk=>{const v=i.f[kk],c=v>=7?'var(--ac)':v<4.5?'var(--rd)':'var(--hint)';return`<span class="chip" style="color:${c}">${FL[kk]}: ${lbl(v)}</span>`};
  const more=[pr.length>2?`<div class="why"><span class="hint">Ещё доводы:</span>${li(pr.slice(2))}</div>`:'',cn.length>2?`<div class="why"><span class="hint">Ещё против:</span>${li(cn.slice(2))}</div>`:'',
+  i.range?`<div class="why"><span class="hint">Какой разброс ждать:</span> ${i.range}</div>`:'',i.inval?`<div class="why"><span class="hint">Что изменит мнение:</span> ${i.inval}</div>`:'',
   i.alts&&i.alts.length?`<div class="why"><span class="hint">Почему не другие:</span>${li(i.alts)}</div>`:'',i.risk?`<div class="why"><span class="hint">Риск:</span> ${i.risk}</div>`:'',
   n?`<div class="why"><span class="hint">Все пункты автопроверки:</span>${i.ch.map(c=>`<div class="hint" style="margin:3px 0">${ICO[c[0]]} ${c[1]}</div>`).join('')}</div>`:''].join('');
- return`<div class="card idea"><span class="tag ${i.c}">${i.tag}</span><b>${i.title}</b>
+ const btn=i.act?`<button class="go sm" onclick="doIdea(${k})">${i.side=='buy'?'✔ Купил':'✔ Продал'}</button> `:'';
+ return`<div class="card idea"><span class="tag ${i.c}">${i.tag}</span>${i.n?`<span class="hint" style="float:right">№${i.n} из ${total}</span>`:''}<div style="margin-top:6px"><b>${i.title}</b></div>
+ ${i.side=='buy'?`<div class="hint" style="margin-top:2px">${i.fit?'✅ хватает свободных денег сейчас':'⏳ хватит со следующих взносов'}</div>`:''}
  ${ks.length?`<div style="margin-top:6px">${ks.map(chip).join(' ')}</div>`:''}
- <div class="why"><span class="hint">Почему:</span> ${i.why}</div>
+ <div class="why">${i.why}</div>
  ${pr.length?`<div class="why"><span class="hint">Почему именно это:</span>${li(pr.slice(0,2))}</div>`:''}
  ${cn.length?`<div class="why"><span class="hint">Что против:</span>${li(cn.slice(0,2))}</div>`:''}
- ${n?`<div class="why"><span class="hint">Автопроверка:</span> ${warns.length?`⚠️ пройдено ${okN} из ${n}, на что обратить внимание:${li(warns.map(c=>c[1]))}`:`✅ пройдена (${okN} из ${n})`}</div>`:''}
- ${more?`<details style="margin-top:8px"><summary class="hint" style="cursor:pointer">Подробнее</summary>${more}</details>`:''}</div>`}
-function ideasView(){const all=buildIdeas(),L=all.filter(i=>idf=='all'||i.cat==idf);setTimeout(warmIdeas,0);
- const chips=[['all','Все'],['share','Акции'],['bond','Облигации'],['fund','Фонды и золото'],['sell','Продажа и пересмотр']].map(([k,l])=>`<button class="q${idf==k?' on':''}" onclick="idf='${k}';draw()">${l}</button>`).join('');
- return`${uniStatus()}<div class="chips">${chips}</div><div class="hint" style="margin:8px 4px">Все проверки перед покупкой приложение выполняет само и показывает итог в каждой идее: ликвидность, лот и сумма, доли в портфеле, даты дивидендов, новости, тренд и спред облигаций. Кредитные рейтинги бесплатно получить нельзя, для облигаций риск оценивается по рыночному спреду к ОФЗ. Это материал для изучения, а не индивидуальная инвестиционная рекомендация.</div>
- ${rateCard()}
- ${L.length?L.map(ideaHtml).join(''):`<div class="card tip" style="--c:var(--ac)"><b>${idf=='all'?'Структура в порядке':'По этому разделу идей нет'}</b>${idf=='all'?'Явных перекосов сейчас не видно. Продолжайте регулярные взносы.':'Попробуйте раздел «Все» или обновите данные биржи.'}</div>`}
- <div class="hint" style="margin-top:10px">Это общая аналитика, а не индивидуальная инвестиционная рекомендация. Решения принимаете вы.</div>`}
+ ${warns.length?`<div class="why">⚠️ ${li(warns.map(c=>c[1]))}</div>`:''}
+ ${more?`<details data-k="${i.key}" ${OPEN.has(i.key)?'open':''} ontoggle="this.open?OPEN.add('${i.key}'):OPEN.delete('${i.key}')" style="margin-top:8px"><summary class="hint" style="cursor:pointer">Подробнее${n?` · проверка: ${okN} из ${n} пунктов без замечаний`:''}</summary>${more}</details>`:''}
+ <div style="margin-top:10px">${btn}<button class="q" onclick="hideIdea(${k})">Скрыть</button></div></div>`}
+const OPEN=new Set();
+function doIdea(k){const i=IDEAS[k];if(!i||!i.act)return;const a=i.act,g=a.qty*a.price,f=g*S.fee/100,buy=a.side=='buy';
+ if(buy&&S.cash<g+f&&!confirm('Не хватает свободных рублей. Всё равно записать?'))return;
+ if(!confirm(`Записать ${buy?'покупку':'продажу'}: ${N(a.qty)} шт ${a.secid} по ${nf2.format(a.price)} ₽ (комиссия ≈ ${nf2.format(f)} ₽)? Цену и дату можно поправить в «Сделки».`))return;
+ S.trades.push({id:Date.now(),d:today(),act:a.side,secid:a.secid,qty:a.qty,price:a.price,fee:f});rebuild();save();NWS.q=0;refresh();draw()}
+function hideIdea(k){const i=IDEAS[k];if(!i)return;S.skip[i.key]=Date.now();save();draw()}
+function unhide(){S.skip={};save();draw()}
+function ideasView(B,X,side){const pl=plan(),L=side=='b'?B:X,off=B.length,hidn=Object.values(S.skip||{}).filter(t=>t>Date.now()-14*864e5).length;
+ const head=side=='b'?`<div class="card hero"><div class="hint">Можно вложить сейчас</div><div class="big" style="font-size:26px">${R(pl.spend)}</div><div class="hint">свободные деньги + взнос ${R(S.monthly)} минус резерв ${R(pl.reserve)}. Идеи идут по порядку: первые, на которые хватает денег, помечены ✅. Купленная идея исчезает из списка, на её место приходит следующая.</div></div>${rateCard()}`:'';
+ const empty=side=='b'?(UNI&&!unb?'Подходящих бумаг сейчас не нашлось: все кандидаты не прошли проверки или уже есть в портфеле.':'Данные биржи ещё загружаются, идеи появятся через минуту.'):'Сигналов на продажу сейчас нет.';
+ return`${uniStatus()}${head}${L.length?L.map((i,j)=>ideaHtml(i,side=='b'?j:off+j,L.length)).join(''):`<div class="card tip" style="--c:var(--ac)">${empty}</div>`}
+ ${hidn?`<div class="hint" style="margin:8px 4px">Скрыто идей: ${hidn} · <a onclick="unhide()" style="color:var(--ac)">показать снова</a></div>`:''}
+ <div class="hint" style="margin-top:10px">Оценки считаются по формулам с вручную подобранными весами и не проверялись на исторических данных. Мосбиржа не отдаёт дивиденды и отчётность, поэтому оценка строится на ценах, рисках, связи с вашим портфелем, новостях и ставке; дивиденды можно внести вручную в Настройках. Это материал для изучения, а не индивидуальная инвестиционная рекомендация.</div>`}
 function rebView(){const pl=plan(),tot=pl.tot,rows_=['share','bond','cash','gold'].map(c=>{const now=pl.cur[c]/tot*100,tg=pl.tgt[c]/pl.T*100,d=pl.tgt[c]-pl.cur[c];
   return`<div class="row" style="display:block"><div class="row" style="padding:0"><b>${CN[c]}</b><span>${W(now)} → ${W(tg)}</span></div>${bar(pl.tgt[c]?pl.cur[c]/pl.tgt[c]*100:0)}<div class="hint" style="margin-top:4px">${Math.abs(d)<tot*.03?'В норме.':d>0?'Докупить ≈ '+R(d):'Избыток ≈ '+R(-d)} · сейчас ${R(pl.cur[c])}</div></div>`}).join('<div class="sep" style="margin:8px 0"></div>');
  return`<h2>Целевая структура</h2><div class="card">${rows_}</div>
  <h2>Куда направить ближайшие деньги</h2><div class="card"><div class="row" style="padding:0"><span>Свободно + взнос</span><b>${R(S.cash+S.monthly)}</b></div><div class="row"><span>Оставить в резерве</span><b>${R(Math.min(pl.reserve,S.cash+S.monthly))}</b></div><div class="row"><span>Можно вложить</span><b>${R(pl.spend)}</b></div>
  ${['share','bond','gold'].map(c=>`<div class="row"><span>${CN[c]}</span><b>${R(pl.a[c])}</b></div>`).join('')}${pl.left>1?`<div class="row"><span>Останется свободным</span><b>${R(pl.left)}</b></div>`:''}</div>
- <div class="hint">Продавать для ребалансировки необязательно: проще направлять новые деньги в отстающие классы. Конкретные бумаги — во вкладке «Идеи». Цели меняются в «Сделки → Настройки».</div>`}
+ <div class="hint">Продавать для ребалансировки необязательно: проще направлять новые деньги в отстающие классы. Конкретные бумаги — во вкладке «Купить». Цели меняются в «Сделки → Настройки».</div>`}
 function stratView(){const{tot}=calc(),cur=byClass(),tw=S.tw,
  ph=['Накопление: регулярные взносы, реинвест выплат, 8–12 бумаг в ядре или индексный фонд','Расширение: добавить отрасли и облигации с разными сроками','Баланс дохода и роста, ребалансировка раз в квартал','Защита капитала: больше облигаций, меньше риска','Масштаб: выплаты покрывают значительную часть расходов'],
  cur_=S.steps.findIndex(s=>tot<s*12/(S.yield/100));
@@ -645,8 +683,8 @@ function stratView(){const{tot}=calc(),cur=byClass(),tw=S.tw,
  <h2>Каждый месяц</h2><div class="card"><ul><li>Внести взнос ${R(S.monthly)}.</li><li>Реинвестировать полученные дивиденды и купоны.</li><li>Одной покупкой докупить класс, который отстаёт от цели (так меньше комиссий).</li><li>Записать сделки во вкладке «Сделки».</li><li>Раз в квартал сверить структуру; ребалансировать, если отклонение больше 10 п. п.</li></ul></div>
  <h2>Правила риска</h2><div class="card"><ul><li>Одна бумага — не больше 15–20% портфеля.</li><li>Короткие сделки — не больше 5–10% капитала, с заранее заданным выходом и убытком.</li><li>Без плеча и фьючерсов на таком капитале.</li><li>Не продавать в панике; не вкладывать деньги, нужные в ближайшие 1–2 года.</li><li>Налоги: НДФЛ с дивидендов, купонов и прибыли; льгота долгосрочного владения (ЛДВ) для акций дольше 3 лет. Уточняйте у брокера.</li></ul></div>
  <div class="hint">Это общая стратегия, а не индивидуальная инвестиционная рекомендация. Решения принимаете вы.</div>`}
-V.pl=()=>{if(!S.positions.length)return emptyCard;const chips=[['i','Идеи'],['r','Ребаланс']].map(([k,l])=>`<button class="q${plT==k?' on':''}" onclick="plT='${k}';draw()">${l}</button>`).join('');
- return`<div class="chips" style="margin-bottom:10px">${chips}</div>`+(plT=='i'?ideasView():rebView())};
+V.pl=()=>{if(!S.positions.length)return emptyCard;const{B,X}=buildIdeas();IDEAS=[...B,...X];setTimeout(warmIdeas,0);const chips=[['b','Купить ('+B.length+')'],['s','Продать ('+X.length+')'],['r','Ребаланс']].map(([k,l])=>`<button class="q${plT==k?' on':''}" onclick="plT='${k}';draw()">${l}</button>`).join('');
+ return`<div class="chips" style="margin-bottom:10px">${chips}</div>`+(plT=='r'?rebView():ideasView(B,X,plT))};
 V.n=()=>{const{all,mine}=newsData(),pos=S.positions;
  const chips=[['mine','Мои бумаги'],['all','Все'],...pos.map(p=>[p.secid,p.secid])].map(([k,l])=>`<button class="q${nwF==k?' on':''}" onclick="nwF='${k}';draw()">${l}</button>`).join('');
  const L=(nwF=='all'?all:nwF=='mine'?mine:mine.filter(i=>i.ps.includes(nwF))).sort((a,b)=>b.d-a.d);NWL=L.slice(0,40);
